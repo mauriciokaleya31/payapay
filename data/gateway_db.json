@@ -5,12 +5,12 @@
       "email": "kaleyapt@gmail.com",
       "name": "Maurício",
       "role": "super_admin",
-      "passwordHash": "6b44f75cbb40fe58403cd1d1b580b457880c6f0b673520ebdeabf2dfbb67b2ec3eb4a1317a005bcecb86a1de0a8c5f77ea5fffdf994a245649a14a439c4b8337",
-      "passwordSalt": "7352941fe36438d9276a321043824ae5",
+      "passwordHash": "82797b626850c690c52467d88a46dd1ee94360badbd36e9e38b67697de052b691d2c435633fd18caaea03accff37c16c3f0585153e224739d2d146b82f2863d0",
+      "passwordSalt": "cc4409b720351354ee76926790e4484d",
       "status": "active",
       "createdAt": "2026-09-14T03:46:17.386Z",
-      "lastLoginAt": "2026-09-14T03:57:32.952Z",
-      "lastLoginIp": "127.0.0.1"
+      "lastLoginAt": "2026-09-14T04:52:38.933Z",
+      "lastLoginIp": "2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126"
     }
   ],
   "sessions": [
@@ -37,17 +37,6 @@
       "userAgent": "curl/7.88.1"
     },
     {
-      "token": "adm_token_d1257628384a46d866fc858fc15f92f6edc1dfb578054348bf1fe30117b944f8",
-      "userId": "usr_admin_mauricio",
-      "userEmail": "kaleyapt@gmail.com",
-      "userName": "Maurício",
-      "role": "super_admin",
-      "createdAt": "2026-09-14T03:53:41.746Z",
-      "expiresAt": "2026-09-21T03:53:41.746Z",
-      "ip": "2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
-    },
-    {
       "token": "adm_token_ea23442bbd058f328e28a19f6ab2fe9c71dbc92b82c484b9bee0ac1481519b3d",
       "userId": "usr_admin_mauricio",
       "userEmail": "kaleyapt@gmail.com",
@@ -57,9 +46,97 @@
       "expiresAt": "2026-09-21T03:57:32.952Z",
       "ip": "127.0.0.1",
       "userAgent": "curl/7.88.1"
+    },
+    {
+      "token": "adm_token_ddc7c699be8a39cd679ad0ba65ed88b50fdb83aa4b86924c09c4dea952c80f84",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "userName": "Maurício",
+      "role": "super_admin",
+      "createdAt": "2026-09-14T04:52:38.934Z",
+      "expiresAt": "2026-09-21T04:52:38.934Z",
+      "ip": "2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
     }
   ],
   "charges": [
+    {
+      "id": "ch_1789361828430_1ok9",
+      "merchantTransactionId": "tx_1789361827021_prrco",
+      "appId": "app_gateway_angola",
+      "appName": "Gateway Oficial Angola",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "providerId": "nuvex",
+      "providerChargeId": "d452d51a-a4d8-419e-9012-466d5dffed66",
+      "amount": 500,
+      "currency": "AOA",
+      "method": "GPR",
+      "description": "Compra: teste",
+      "customerName": "Valdemar ManuelMaubswjfwsdf",
+      "customerEmail": "kaleyapaat@gmail.com",
+      "status": "pending",
+      "paymentLinkId": "link_1789360554969_4xkt",
+      "referenceDetails": {
+        "entity": "10111",
+        "reference": "911 045 513",
+        "amount": 500,
+        "expiryDate": "2026-09-14T08:57:08.385Z"
+      },
+      "environment": "live",
+      "platformFeeRate": 0.2,
+      "platformFee": 100,
+      "netAmount": 400,
+      "createdAt": "2026-09-14T04:57:08.430Z",
+      "providerRawResponse": {
+        "id": "d452d51a-a4d8-419e-9012-466d5dffed66",
+        "status": "pending",
+        "method": "GPR",
+        "amount": 500,
+        "currency": "AOA",
+        "merchant_transaction_id": "tx_1789361827021_prrco",
+        "reference": {
+          "entity": "10111",
+          "reference": "911045513"
+        },
+        "payment_url": null,
+        "expires_at": "2026-09-14T08:57:08.385Z",
+        "created_at": "2026-09-14T04:57:08.385193+00:00",
+        "provider_reference": "be96d6fa-0d94-4757-a90d-50c02926b7a7"
+      }
+    },
+    {
+      "id": "ch_1789361603275_owtj",
+      "merchantTransactionId": "tx_1789361595270_opx6u",
+      "appName": "Gateway Checkout",
+      "providerId": "nuvex",
+      "providerChargeId": "nvx_ch_c1aaw7b",
+      "amount": 500,
+      "currency": "AOA",
+      "method": "GPO",
+      "phoneNumber": "923009917",
+      "description": "Compra: teste",
+      "customerName": "Valdemar Manuelklmom",
+      "customerEmail": "valdemar@exemkplo.ao",
+      "status": "pending",
+      "productId": "prod_1789360554969_vugf",
+      "environment": "live",
+      "platformFeeRate": 0.2,
+      "platformFee": 100,
+      "netAmount": 400,
+      "createdAt": "2026-09-14T04:53:23.275Z",
+      "providerRawResponse": {
+        "id": "nvx_ch_c1aaw7b",
+        "amount": 500,
+        "method": "GPO",
+        "status": "pending",
+        "phone_number": "923009917",
+        "merchant_transaction_id": "tx_1789361595270_opx6u",
+        "mode": "live",
+        "message": "Notificação push enviada para o terminal Multicaixa Express do cliente."
+      },
+      "userId": "usr_admin_mauricio"
+    },
     {
       "id": "ch_1789358479699_gs9b",
       "merchantTransactionId": "tx_1789358478173_xp47m",
@@ -94,7 +171,11 @@
         "expires_at": "2026-09-14T08:01:19.671Z",
         "created_at": "2026-09-14T04:01:19.671429+00:00",
         "provider_reference": "98f0757b-3e51-44c6-b1c1-e2ba685eb3de"
-      }
+      },
+      "platformFeeRate": 0.2,
+      "platformFee": 500,
+      "netAmount": 2000,
+      "userId": "usr_admin_mauricio"
     },
     {
       "id": "ch_1789358185712_ccqb",
@@ -134,7 +215,11 @@
         "expires_at": "2026-09-14T07:56:25.684Z",
         "created_at": "2026-09-14T03:56:25.684644+00:00",
         "provider_reference": "557abb75-d6b0-4f0e-bd6d-dbb945f230fb"
-      }
+      },
+      "platformFeeRate": 0.2,
+      "platformFee": 200,
+      "netAmount": 800,
+      "userId": "usr_admin_mauricio"
     },
     {
       "id": "ch_1789358164637_o6bc",
@@ -160,7 +245,11 @@
         "merchant_transaction_id": "tx_1789358156635_at6sk",
         "mode": "live",
         "message": "Notificação push enviada para o terminal Multicaixa Express do cliente."
-      }
+      },
+      "platformFeeRate": 0.2,
+      "platformFee": 3000,
+      "netAmount": 12000,
+      "userId": "usr_admin_mauricio"
     },
     {
       "id": "ch_1789357905996_nm5n",
@@ -185,7 +274,11 @@
         "merchant_transaction_id": "tx_1789357905996_iev7s",
         "mode": "sandbox",
         "message": "Notificação push enviada para o terminal Multicaixa Express do cliente."
-      }
+      },
+      "platformFeeRate": 0.2,
+      "platformFee": 500,
+      "netAmount": 2000,
+      "userId": "usr_admin_mauricio"
     },
     {
       "id": "ch_1789357902899_h1kt",
@@ -215,10 +308,59 @@
         "entity": "00123",
         "reference": "918 868 736",
         "mode": "sandbox"
-      }
+      },
+      "platformFeeRate": 0.2,
+      "platformFee": 1000,
+      "netAmount": 4000,
+      "userId": "usr_admin_mauricio"
     }
   ],
   "links": [
+    {
+      "id": "link_1789360554969_4xkt",
+      "slug": "teste-5h2q",
+      "appId": "app_gateway_angola",
+      "title": "teste",
+      "description": "teste",
+      "amount": 500,
+      "currency": "AOA",
+      "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&auto=format&fit=crop&q=80",
+      "allowedMethods": [
+        "GPO",
+        "GPR"
+      ],
+      "isActive": true,
+      "requiresCustomerName": true,
+      "requiresCustomerEmail": true,
+      "requiresCustomerPhone": true,
+      "totalViews": 1,
+      "totalSalesCount": 0,
+      "totalSalesAmount": 0,
+      "createdAt": "2026-09-14T04:35:54.970Z",
+      "productId": "prod_1789360554969_vugf"
+    },
+    {
+      "id": "link_1789358593925_uq9j",
+      "slug": "teste-o662",
+      "appId": "app_gateway_angola",
+      "title": "Teste",
+      "description": "tetse",
+      "amount": 500,
+      "currency": "AOA",
+      "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&auto=format&fit=crop&q=80",
+      "allowedMethods": [
+        "GPO",
+        "GPR"
+      ],
+      "isActive": true,
+      "requiresCustomerName": true,
+      "requiresCustomerEmail": true,
+      "requiresCustomerPhone": true,
+      "totalViews": 0,
+      "totalSalesCount": 0,
+      "totalSalesAmount": 0,
+      "createdAt": "2026-09-14T04:03:13.925Z"
+    },
     {
       "id": "link_cobranca_padrao",
       "slug": "pagamento-expresso",
@@ -242,7 +384,23 @@
       "createdAt": "2026-09-14T03:46:17.387Z"
     }
   ],
-  "products": [],
+  "products": [
+    {
+      "id": "prod_1789360554969_vugf",
+      "appId": "app_gateway_angola",
+      "name": "teste",
+      "description": "teste",
+      "price": 500,
+      "currency": "AOA",
+      "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&auto=format&fit=crop&q=80",
+      "category": "Geralteste",
+      "stock": 50,
+      "isActive": true,
+      "salesCount": 0,
+      "createdAt": "2026-09-14T04:35:54.969Z",
+      "paymentLinkId": "link_1789360554969_4xkt"
+    }
+  ],
   "apps": [
     {
       "id": "app_gateway_angola",
@@ -266,6 +424,77 @@
     }
   ],
   "logs": [
+    {
+      "id": "log_1789361828431_x22o",
+      "timestamp": "2026-09-14T04:57:08.431Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 500 Kz (GPR)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789361827021_prrco",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789361828430_1ok9",
+      "appId": "app_gateway_angola",
+      "payload": {
+        "amount": 500,
+        "method": "GPR"
+      }
+    },
+    {
+      "id": "log_1789361603276_rtym",
+      "timestamp": "2026-09-14T04:53:23.276Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 500 Kz (GPO)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789361595270_opx6u",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789361603275_owtj",
+      "payload": {
+        "amount": 500,
+        "method": "GPO"
+      }
+    },
+    {
+      "id": "log_1789361558934_j13c",
+      "timestamp": "2026-09-14T04:52:38.934Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789360698881_3u6d",
+      "timestamp": "2026-09-14T04:38:18.881Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789360288466_l8n9",
+      "timestamp": "2026-09-14T04:31:28.466Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358746675_qop0",
+      "timestamp": "2026-09-14T04:05:46.675Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
     {
       "id": "log_1789358479699_ycrj",
       "timestamp": "2026-09-14T04:01:19.699Z",
@@ -485,5 +714,19 @@
         "message": "Credenciais Nuvex validadas e autenticadas com sucesso (330ms). Provedor pronto para produção."
       }
     }
-  ]
+  ],
+  "bankAccounts": [
+    {
+      "id": "bank_1789360202430",
+      "userId": "usr_admin_mauricio",
+      "holderName": "Mauricio Kaleya",
+      "bankName": "Banco Angolano de Investimentos (BAI)",
+      "iban": "004000003224707910198",
+      "accountNumber": "32247079101",
+      "isVerified": true,
+      "updatedAt": "2026-09-14T04:30:02.430Z"
+    }
+  ],
+  "kycDocuments": [],
+  "withdrawals": []
 }
