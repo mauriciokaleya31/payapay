@@ -1,6 +1,36 @@
 <!doctype html>
 <html lang="pt">
   <head>
+    <script>
+      (function() {
+        try {
+          var _rawFetch = typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : null;
+          var _activeFetch = _rawFetch;
+          if (_rawFetch) {
+            Object.defineProperty(window, 'fetch', {
+              get: function() { return _activeFetch; },
+              set: function(fn) { _activeFetch = typeof fn === 'function' ? fn : _rawFetch; },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {
+          try {
+            var proto = Object.getPrototypeOf(window);
+            if (proto) {
+              var _rawP = window.fetch ? window.fetch.bind(window) : null;
+              var _activeP = _rawP;
+              Object.defineProperty(proto, 'fetch', {
+                get: function() { return _activeP; },
+                set: function(fn) { _activeP = typeof fn === 'function' ? fn : _rawP; },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (err) {}
+        }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pay Yetux - Gateway de Pagamentos</title>
