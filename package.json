@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   },
   "scripts": {
     "dev": "tsx server.ts",
@@ -25,7 +28,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "recharts": "^3.10.1",
-    "vite": "^6.2.3",
+    "vite": "^6.4.3",
     "esbuild": "^0.25.0"
   },
   "devDependencies": {
