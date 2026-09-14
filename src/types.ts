@@ -14,6 +14,8 @@ export interface Charge {
   merchantTransactionId: string;
   appId?: string;
   appName?: string;
+  userId?: string;
+  userEmail?: string;
   providerId: string;
   providerChargeId?: string;
   amount: number;
@@ -29,6 +31,9 @@ export interface Charge {
   referenceDetails?: PaymentReferenceDetails;
   metadata?: Record<string, any>;
   environment: 'live' | 'test';
+  platformFeeRate?: number;
+  platformFee?: number;
+  netAmount?: number;
   createdAt: string;
   paidAt?: string;
   failedAt?: string;
@@ -179,6 +184,10 @@ export interface GatewayStats {
   totalTransactionsCount: number;
   conversionRate: number;
   availableBalance?: number;
+  totalPlatformRevenue?: number;
+  totalDevelopersCount?: number;
+  activeDevelopersCount?: number;
+  totalAppsCount?: number;
   volumeByMethod: {
     gpo: number;
     gpr: number;
@@ -199,8 +208,19 @@ export interface AdminUser {
   id: string;
   email: string;
   name: string;
-  role: 'superadmin' | 'admin' | 'finance';
+  phone?: string;
+  avatarUrl?: string;
+  companyName?: string;
+  role: 'super_admin' | 'admin' | 'developer' | 'merchant' | 'support' | 'superadmin' | 'finance';
+  status?: 'active' | 'inactive' | 'blocked';
+  platformFeePercentage?: number;
+  createdAt?: string;
   lastLoginAt?: string;
+  stats?: {
+    totalApps: number;
+    totalCharges: number;
+    totalSalesVolume: number;
+  };
 }
 
 export interface AuthResponse {

@@ -34,7 +34,7 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'gateway_db.json');
 
 // Helper to hash password
-function createAdminPasswordHash(password: string, existingSalt?: string): { hash: string; salt: string } {
+export function createAdminPasswordHash(password: string, existingSalt?: string): { hash: string; salt: string } {
   const salt = existingSalt || crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
   return { hash, salt };
@@ -84,7 +84,7 @@ class MemoryAndFileStore {
     }
   }
 
-  private persistToDisk() {
+  public persistToDisk() {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -96,268 +96,68 @@ class MemoryAndFileStore {
   }
 
   /**
-   * Garantir que o administrador requisitado (kaleyapt@gmail.com / Mauricio.200)
-   * está sempre cadastrado e que a base contém dados reais limpos e seguros.
+   * Garantir que o administrador requisitado está cadastrado e que os dados
+   * persistentes do utilizador NUNCA são apagados ou reinicializados.
    */
   public ensureAdminAndCleanRealData() {
     const adminEmail = 'kaleyapt@gmail.com';
     const adminPass = 'Mauricio.200';
 
     let admin = this.data.users.find((u) => u.email.toLowerCase() === adminEmail.toLowerCase());
-    const { hash, salt } = createAdminPasswordHash(adminPass);
 
     if (!admin) {
+      const { hash, salt } = createAdminPasswordHash(adminPass);
       admin = {
         id: 'usr_admin_mauricio',
         email: adminEmail,
         name: 'Maurício',
+        phone: '+244 923 000 000',
+        companyName: 'Pay Yetux Gateway',
         role: 'super_admin',
         passwordHash: hash,
         passwordSalt: salt,
         status: 'active',
+        platformFeePercentage: 20,
         createdAt: new Date().toISOString(),
       };
-      this.data.users.push(admin);
-    } else {
-      // Atualizar com a senha exata requerida caso tenha mudado
-      admin.name = admin.name || 'Maurício';
-      admin.role = 'super_admin';
-      admin.status = 'active';
-      admin.passwordHash = hash;
-      admin.passwordSalt = salt;
+      this.data.users.unshift(admin);
     }
 
-    // Limpar dados fictícios se forem os dados de exemplo antigos ("Loja Luanda Digital", "Manuel Sebastião", etc)
-    const hasFakeData = this.data.apps.some((a) => a.id === 'app_nuvex_commerce' || a.name === 'Loja Luanda Digital');
-    if (hasFakeData || this.data.apps.length === 0) {
-      // Substituir por dados reais associados ao Admin kaleyapt@gmail.com
-      const officialAppId = 'app_gateway_angola';
-      this.data.apps = [
-        {
-          id: officialAppId,
-          name: 'Gateway Oficial Angola',
-          description: 'Integração de pagamentos com Nuvex (Multicaixa Express e Referência Bancária).',
-          userId: admin.id,
-          userEmail: adminEmail,
-          apiKeyLive: 'nvx_live_ao_984392482348',
-          secretKeyLive: 'gw_sec_live_9a48f831bc4029a7',
-          apiKeyTest: 'nvx_test_ao_123490812394',
-          secretKeyTest: 'gw_sec_test_7e31b942ac1104e2',
-          webhookUrl: '',
-          webhookSecret: 'whsec_gateway_9941_real',
-          webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-      ];
+    // Certificar que cobranças possuem taxa de plataforma de 20%
+    for (const c of this.data.charges) {
+      if (!c.platformFeeRate) {
+        c.platformFeeRate = 0.20; // 20% taxa Pay Yetux
+      }
+      if (c.platformFee === undefined) {
+        c.platformFee = Math.round(c.amount * (c.platformFeeRate || 0.20));
+      }
+      if (c.netAmount === undefined) {
+        c.netAmount = c.amount - c.platformFee;
+      }
+      if (!c.userId && admin) {
+        c.userId = admin.id;
+      }
+    }
 
-      // Resetar cobranças fictícias antigas para manter dados reais limpos
-      this.data.charges = [];
-
-      // Links reais do admin prontos para uso
-      this.data.links = [
-        {
-          id: 'link_cobranca_padrao',
-          slug: 'pagamento-expresso',
-          appId: officialAppId,
-          title: 'Pagamento Expresso Multicaixa',
-          description: 'Link seguro para recebimento de pagamentos via Multicaixa Express e Referência Bancária.',
-          amount: 10000,
-          currency: 'AOA',
-          imageUrl: 'https://images.unsplash.com/photo-1556742049-0a67e557224f?w=600&auto=format&fit=crop&q=80',
-          allowedMethods: ['GPO', 'GPR'],
-          isActive: true,
-          requiresCustomerName: true,
-          requiresCustomerEmail: true,
-          requiresCustomerPhone: true,
-          totalViews: 0,
-          totalSalesCount: 0,
-          totalSalesAmount: 0,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-
-      this.data.products = [];
-
-      // Bank Account inicial do utilizador
-      this.data.bankAccounts = [
-        {
-          id: 'bank_acc_mauricio',
-          userId: admin.id,
-          holderName: 'Mauricio Kaleya',
-          bankName: 'Banco Angolano de Investimentos (BAI)',
-          iban: '004000003224707910198',
-          accountNumber: '32247079101',
-          isVerified: true,
-          updatedAt: '2026-09-14T03:25:00Z',
-        },
-      ];
-
-      // Documentos de verificação KYC inicial
-      this.data.kycDocuments = [
-        {
-          id: 'kyc_doc_01',
-          userId: admin.id,
-          userEmail: adminEmail,
-          docType: 'identity',
-          docTypeLabel: 'Documento de identidade (BI ou passaporte)',
-          fileName: 'BI_Mauricio_Kaleya_Oficial.pdf',
-          fileSize: '1.8 MB',
-          status: 'verified',
-          submittedAt: '2026-09-14T03:28:00Z',
-          reviewedAt: '2026-09-14T03:30:00Z',
-          notes: 'Identificação pessoal aprovada para operações e levantamentos bancários.',
-        },
-      ];
-
-      // Projetos de Desenvolvedor (Cada projeto tem chave de API e webhook próprios)
+    // Se ainda não houver nenhum projeto cadastrado (primeira inicialização)
+    if (this.data.apps.length === 0) {
       const initialProjectKey = 'nvx_live_5b2173ea901844bca';
-      this.data.apps = [
-        {
-          id: 'prj_chave_inicial',
-          name: 'Chave inicial',
-          description: 'Projeto primário para integração de aplicativos e checkout com a API Pay Yetux.',
-          userId: admin.id,
-          userEmail: adminEmail,
-          apiKeyLive: initialProjectKey,
-          secretKeyLive: 'gw_sec_live_9a48f831bc4029a7',
-          apiKeyTest: 'py_test_7e31b942ac1104e2',
-          secretKeyTest: 'gw_sec_test_7e31b942ac1104e2',
-          webhookUrl: '', // Sem callback
-          webhookSecret: 'whsec_payyetux_chave_inicial',
-          webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
-          isActive: true,
-          createdAt: '2026-09-14T03:29:00Z',
-        },
-      ];
-
-      // Transações com o estado inicial: 0 concluídos, 3 pendentes, 0/6 transações (0.0% conversão)
-      this.data.charges = [
-        {
-          id: 'ch_01_gpr_pending',
-          merchantTransactionId: 'tx_pay_17893581001',
-          appId: 'prj_chave_inicial',
-          appName: 'Chave inicial',
-          providerId: 'nuvex',
-          providerChargeId: '66265521-f7ca-4aeb-bd2f-0fed5fa7a80f',
-          amount: 5000,
-          currency: 'AOA',
-          method: 'GPR',
-          description: 'Faturação de Serviço Web #1041',
-          status: 'pending',
-          referenceDetails: {
-            entity: '10111',
-            reference: '116 216 551',
-            amount: 5000,
-            expiryDate: '2026-09-15T08:00:00.000Z',
-          },
-          environment: 'live',
-          createdAt: '2026-09-14T03:32:10.000Z',
-        },
-        {
-          id: 'ch_02_gpo_pending',
-          merchantTransactionId: 'tx_pay_17893581002',
-          appId: 'prj_chave_inicial',
-          appName: 'Chave inicial',
-          providerId: 'nuvex',
-          providerChargeId: '77123912-ab34-45cd-89ef-123456789abc',
-          amount: 12500,
-          currency: 'AOA',
-          method: 'GPO',
-          phoneNumber: '923456789',
-          description: 'Assinatura Mensal Plataforma',
-          status: 'pending',
-          environment: 'live',
-          createdAt: '2026-09-14T03:35:45.000Z',
-        },
-        {
-          id: 'ch_03_gpo_pending',
-          merchantTransactionId: 'tx_pay_17893581003',
-          appId: 'prj_chave_inicial',
-          appName: 'Chave inicial',
-          providerId: 'nuvex',
-          providerChargeId: '88123912-bc45-56de-90fa-234567890bcd',
-          amount: 8000,
-          currency: 'AOA',
-          method: 'GPO',
-          phoneNumber: '931220441',
-          description: 'Créditos de Envio SMS API',
-          status: 'pending',
-          environment: 'live',
-          createdAt: '2026-09-14T03:38:20.000Z',
-        },
-        {
-          id: 'ch_04_gpo_failed',
-          merchantTransactionId: 'tx_pay_17893581004',
-          appId: 'prj_chave_inicial',
-          appName: 'Chave inicial',
-          providerId: 'nuvex',
-          amount: 25000,
-          currency: 'AOA',
-          method: 'GPO',
-          phoneNumber: '912345678',
-          description: 'Renovação de Domínio e Hospedagem',
-          status: 'failed',
-          errorMessage: 'Tempo limite de confirmação excedido no terminal móvel do cliente.',
-          environment: 'live',
-          createdAt: '2026-09-14T02:15:00.000Z',
-          failedAt: '2026-09-14T02:17:00.000Z',
-        },
-        {
-          id: 'ch_05_gpr_expired',
-          merchantTransactionId: 'tx_pay_17893581005',
-          appId: 'prj_chave_inicial',
-          appName: 'Chave inicial',
-          providerId: 'nuvex',
-          amount: 15000,
-          currency: 'AOA',
-          method: 'GPR',
-          description: 'Inscrição em Curso Técnico',
-          status: 'expired',
-          referenceDetails: {
-            entity: '10111',
-            reference: '116 216 540',
-            amount: 15000,
-            expiryDate: '2026-09-13T23:59:59.000Z',
-          },
-          environment: 'live',
-          createdAt: '2026-09-13T10:00:00.000Z',
-        },
-        {
-          id: 'ch_06_gpo_failed',
-          merchantTransactionId: 'tx_pay_17893581006',
-          appId: 'prj_chave_inicial',
-          appName: 'Chave inicial',
-          providerId: 'nuvex',
-          amount: 35000,
-          currency: 'AOA',
-          method: 'GPO',
-          phoneNumber: '945678912',
-          description: 'Aquisição de Licença de Software',
-          status: 'failed',
-          errorMessage: 'Saldo insuficiente ou cartão bloqueado na EMIS.',
-          environment: 'live',
-          createdAt: '2026-09-12T16:20:00.000Z',
-          failedAt: '2026-09-12T16:22:00.000Z',
-        },
-      ];
-
-      // Pedidos de levantamento
-      this.data.withdrawals = [];
-
-      // Logs reais de segurança do sistema
-      this.data.logs = [
-        {
-          id: `log_init_01`,
-          type: 'api_request',
-          title: 'Pay Yetux Gateway Inicializado',
-          details: `Administrador ${adminEmail} autenticado com segurança. Plataforma Pay Yetux operacional.`,
-          endpoint: '/api/v1/auth',
-          statusCode: 200,
-          success: true,
-          timestamp: new Date().toISOString(),
-        },
-      ];
+      this.data.apps.push({
+        id: 'prj_chave_inicial',
+        name: 'Chave inicial',
+        description: 'Projeto primário para integração de pagamentos e checkout com a API Pay Yetux.',
+        userId: admin.id,
+        userEmail: adminEmail,
+        apiKeyLive: initialProjectKey,
+        secretKeyLive: 'gw_sec_live_9a48f831bc4029a7',
+        apiKeyTest: 'py_test_7e31b942ac1104e2',
+        secretKeyTest: 'gw_sec_test_7e31b942ac1104e2',
+        webhookUrl: '',
+        webhookSecret: 'whsec_payyetux_chave_inicial',
+        webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
     }
 
     this.persistToDisk();
@@ -375,7 +175,7 @@ class MemoryAndFileStore {
   saveUser(user: AdminUser): AdminUser {
     const idx = this.data.users.findIndex((u) => u.id === user.id);
     if (idx >= 0) {
-      this.data.users[idx] = user;
+      this.data.users[idx] = { ...this.data.users[idx], ...user };
     } else {
       this.data.users.push(user);
     }
@@ -383,8 +183,39 @@ class MemoryAndFileStore {
     return user;
   }
 
+  deleteUser(id: string): boolean {
+    const user = this.getUserById(id);
+    if (!user || user.role === 'super_admin') {
+      return false; // Don't delete super admin
+    }
+    const prevLen = this.data.users.length;
+    this.data.users = this.data.users.filter((u) => u.id !== id);
+    this.data.sessions = this.data.sessions.filter((s) => s.userId !== id);
+    this.persistToDisk();
+    return this.data.users.length < prevLen;
+  }
+
   getUsers(): Omit<AdminUser, 'passwordHash' | 'passwordSalt'>[] {
     return this.data.users.map(({ passwordHash, passwordSalt, ...safe }) => safe);
+  }
+
+  getUsersWithStats(): Omit<AdminUser, 'passwordHash' | 'passwordSalt'>[] {
+    return this.data.users.map(({ passwordHash, passwordSalt, ...safe }) => {
+      const userApps = this.data.apps.filter((a) => a.userId === safe.id);
+      const appIds = new Set(userApps.map((a) => a.id));
+      const userCharges = this.data.charges.filter((c) => c.userId === safe.id || (c.appId && appIds.has(c.appId)));
+      const paidCharges = userCharges.filter((c) => c.status === 'paid');
+      const salesVolume = paidCharges.reduce((sum, c) => sum + c.amount, 0);
+
+      return {
+        ...safe,
+        stats: {
+          totalApps: userApps.length,
+          totalCharges: userCharges.length,
+          totalSalesVolume: salesVolume,
+        },
+      };
+    });
   }
 
   // --- Sessions ---
@@ -393,7 +224,6 @@ class MemoryAndFileStore {
   }
 
   saveSession(session: AuthSession): AuthSession {
-    // Remove existing sessions for the same token if any
     this.data.sessions = this.data.sessions.filter((s) => s.token !== session.token);
     this.data.sessions.push(session);
     this.cleanExpiredSessions();
@@ -414,8 +244,14 @@ class MemoryAndFileStore {
   }
 
   // --- Charges ---
-  getCharges(): Charge[] {
-    return [...this.data.charges].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  getCharges(userId?: string): Charge[] {
+    let list = this.data.charges;
+    if (userId) {
+      const userApps = this.data.apps.filter((a) => a.userId === userId);
+      const appIds = new Set(userApps.map((a) => a.id));
+      list = list.filter((c) => c.userId === userId || (c.appId && appIds.has(c.appId)));
+    }
+    return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   getChargeById(id: string): Charge | undefined {
@@ -423,6 +259,17 @@ class MemoryAndFileStore {
   }
 
   saveCharge(charge: Charge): Charge {
+    // Ensure 20% platform fee calculation
+    if (!charge.platformFeeRate) {
+      charge.platformFeeRate = 0.20;
+    }
+    if (charge.platformFee === undefined) {
+      charge.platformFee = Math.round(charge.amount * charge.platformFeeRate);
+    }
+    if (charge.netAmount === undefined) {
+      charge.netAmount = charge.amount - charge.platformFee;
+    }
+
     const idx = this.data.charges.findIndex((c) => c.id === charge.id);
     if (idx >= 0) {
       this.data.charges[idx] = charge;
@@ -488,8 +335,12 @@ class MemoryAndFileStore {
   }
 
   // --- Apps ---
-  getApps(): ClientApp[] {
-    return [...this.data.apps].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  getApps(userId?: string): ClientApp[] {
+    let list = this.data.apps;
+    if (userId) {
+      list = list.filter((a) => a.userId === userId);
+    }
+    return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   getAppById(id: string): ClientApp | undefined {
@@ -658,8 +509,14 @@ class MemoryAndFileStore {
   }
 
   // --- Stats Calculation ---
-  getStats(): GatewayStats {
-    const charges = this.data.charges;
+  getStats(userId?: string): GatewayStats {
+    let charges = this.data.charges;
+    if (userId) {
+      const userApps = this.data.apps.filter((a) => a.userId === userId);
+      const appIds = new Set(userApps.map((a) => a.id));
+      charges = charges.filter((c) => c.userId === userId || (c.appId && appIds.has(c.appId)));
+    }
+
     const paidCharges = charges.filter((c) => c.status === 'paid');
     const pendingCharges = charges.filter((c) => c.status === 'pending');
     const failedCharges = charges.filter((c) => c.status === 'failed' || c.status === 'cancelled' || c.status === 'expired');
@@ -721,12 +578,33 @@ class MemoryAndFileStore {
       count: val.count,
     }));
 
-    // Calculate available balance: paid revenue net of fees minus completed/pending withdrawals
-    const completedOrPendingWithdrawals = (this.data.withdrawals || [])
+    // Calculate available balance
+    // Developer receives 80% (amount - 20% platform fee)
+    // Withdrawals deducted for this user (or all if admin)
+    const withdrawals = (this.data.withdrawals || []).filter((w) => (userId ? w.userId === userId : true));
+    const completedOrPendingWithdrawals = withdrawals
       .filter((w) => w.status === 'completed' || w.status === 'pending')
       .reduce((sum, w) => sum + w.amount, 0);
 
-    const availableBalance = Math.max(0, Math.round(totalSalesVolume * 0.985 - completedOrPendingWithdrawals));
+    const netPaidTotal = paidCharges.reduce((sum, c) => sum + (c.netAmount !== undefined ? c.netAmount : Math.round(c.amount * 0.80)), 0);
+    const availableBalance = Math.max(0, netPaidTotal - completedOrPendingWithdrawals);
+
+    // Platform revenue (20% retained by Pay Yetux)
+    const globalPaidCharges = this.data.charges.filter((c) => c.status === 'paid');
+    const totalPlatformRevenue = globalPaidCharges.reduce((sum, c) => {
+      const fee = c.platformFee !== undefined ? c.platformFee : Math.round(c.amount * (c.platformFeeRate || 0.20));
+      return sum + fee;
+    }, 0);
+
+    const totalDevelopersCount = this.data.users.filter((u) => u.role === 'developer').length;
+    
+    // Active developers: developers with at least 1 app or charge
+    const activeDevIds = new Set([
+      ...this.data.apps.map((a) => a.userId).filter(Boolean),
+      ...this.data.charges.map((c) => c.userId).filter(Boolean)
+    ]);
+    const activeDevelopersCount = this.data.users.filter((u) => u.role === 'developer' && activeDevIds.has(u.id)).length;
+    const totalAppsCount = this.data.apps.filter((a) => a.isActive).length;
 
     return {
       totalSalesVolume,
@@ -736,6 +614,10 @@ class MemoryAndFileStore {
       totalTransactionsCount: totalCount,
       conversionRate: Math.round(conversionRate * 10) / 10,
       availableBalance,
+      totalPlatformRevenue,
+      totalDevelopersCount,
+      activeDevelopersCount: Math.max(activeDevelopersCount, totalDevelopersCount > 0 ? 1 : 0),
+      totalAppsCount,
       volumeByMethod: {
         gpo: gpoVolume,
         gpr: gprVolume,

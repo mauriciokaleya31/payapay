@@ -1,11 +1,12 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import crypto, { randomBytes } from 'crypto';
 import { createServer as createViteServer } from 'vite';
-import { store } from './server/store.js';
+import { store, createAdminPasswordHash } from './server/store.js';
 import { providerManager } from './server/providers/manager.js';
 import { dispatchClientWebhook, testWebhookEndpoint } from './server/webhookNotifier.js';
-import { Charge, PaymentLink, Product, ClientApp, PaymentMethodType, AuthSession, ProviderConfig } from './server/types.js';
+import { Charge, PaymentLink, Product, ClientApp, PaymentMethodType, AuthSession, ProviderConfig, AdminUser } from './server/types.js';
 import {
   verifyPassword,
   checkLoginRateLimit,
@@ -233,6 +234,341 @@ app.post('/api/v1/auth/logout', (req: Request, res: Response) => {
 });
 
 // ----------------------------------------------------
+// Public Registration for Developers & Merchants
+// ----------------------------------------------------
+app.post('/api/v1/auth/register', (req: Request, res: Response) => {
+  try {
+    const { name, email, password, phone, companyName } = req.body;
+    const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nome, e-mail e palavra-passe são obrigatórios.',
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'A palavra-passe deve ter pelo menos 6 caracteres.',
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = store.getUserByEmail(cleanEmail);
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: 'Este endereço de e-mail já se encontra registado no sistema.',
+      });
+    }
+
+    const { hash, salt } = createAdminPasswordHash(password);
+    const userId = `usr_dev_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    const cleanName = name.trim();
+
+    const newUser: AdminUser = {
+      id: userId,
+      email: cleanEmail,
+      name: cleanName,
+      phone: phone ? phone.trim() : undefined,
+      companyName: companyName ? companyName.trim() : `${cleanName} Soluções`,
+      role: 'developer',
+      passwordHash: hash,
+      passwordSalt: salt,
+      status: 'active',
+      platformFeePercentage: 20, // 20% platform fee
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      lastLoginIp: clientIp,
+    };
+
+    store.saveUser(newUser);
+
+    // Auto-generate primary developer app with API keys and webhook
+    const appId = `app_dev_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    const randHex = (n = 16) => randomBytes(n).toString('hex');
+    const newApp: ClientApp = {
+      id: appId,
+      name: companyName ? `${companyName} App` : `Projeto Principal ${cleanName}`,
+      description: 'Projeto primário para integração de pagamentos e checkout com a API Pay Yetux.',
+      userId: newUser.id,
+      userEmail: newUser.email,
+      apiKeyLive: `nvx_live_${randHex(12)}`,
+      secretKeyLive: `gw_sec_live_${randHex(16)}`,
+      apiKeyTest: `py_test_${randHex(12)}`,
+      secretKeyTest: `gw_sec_test_${randHex(16)}`,
+      webhookUrl: '',
+      webhookSecret: `whsec_${randHex(16)}`,
+      webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+    store.saveApp(newApp);
+
+    // Create session
+    const userAgent = req.headers['user-agent'];
+    const session = createSession(newUser, clientIp, userAgent);
+
+    store.addLog({
+      type: 'api_request',
+      title: `Novo Desenvolvedor Registado: ${newUser.email}`,
+      details: `Conta de desenvolvedor criada com sucesso. Projeto e chaves de API iniciais geradas.`,
+      endpoint: '/api/v1/auth/register',
+      statusCode: 201,
+      success: true,
+    });
+
+    res.status(201).json({
+      success: true,
+      token: session.token,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        phone: newUser.phone,
+        companyName: newUser.companyName,
+        role: newUser.role,
+        platformFeePercentage: newUser.platformFeePercentage,
+        lastLoginAt: newUser.lastLoginAt,
+      },
+      app: newApp,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Profile Management (Get & Update Profile)
+// ----------------------------------------------------
+app.get('/api/v1/auth/profile', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const userId = req.adminSession?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Não autenticado' });
+    }
+    const user = store.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Utilizador não encontrado' });
+    }
+
+    const { passwordHash, passwordSalt, ...safeUser } = user;
+    res.json({ success: true, user: safeUser });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/v1/auth/profile', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const userId = req.adminSession?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Não autenticado' });
+    }
+
+    const user = store.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Utilizador não encontrado' });
+    }
+
+    const { name, phone, companyName, avatarUrl, email, currentPassword, newPassword } = req.body;
+
+    if (name) user.name = name.trim();
+    if (phone !== undefined) user.phone = phone.trim();
+    if (companyName !== undefined) user.companyName = companyName.trim();
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl.trim();
+
+    // Change email if unique
+    if (email && email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      const cleanEmail = email.trim().toLowerCase();
+      const existing = store.getUserByEmail(cleanEmail);
+      if (existing && existing.id !== user.id) {
+        return res.status(400).json({ success: false, error: 'Este e-mail já está em utilização por outra conta.' });
+      }
+      user.email = cleanEmail;
+      if (req.adminSession) {
+        req.adminSession.userEmail = cleanEmail;
+      }
+    }
+
+    // Change password if requested
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, error: 'A nova palavra-passe deve ter pelo menos 6 caracteres.' });
+      }
+      if (currentPassword) {
+        const isValid = verifyPassword(currentPassword, user.passwordHash, user.passwordSalt);
+        if (!isValid) {
+          return res.status(400).json({ success: false, error: 'A palavra-passe atual indicada está incorreta.' });
+        }
+      }
+      const { hash, salt } = createAdminPasswordHash(newPassword);
+      user.passwordHash = hash;
+      user.passwordSalt = salt;
+    }
+
+    store.saveUser(user);
+
+    store.addLog({
+      type: 'api_request',
+      title: `Perfil Atualizado: ${user.email}`,
+      details: `Dados de perfil e credenciais do utilizador ${user.name} atualizados com sucesso.`,
+      endpoint: '/api/v1/auth/profile',
+      statusCode: 200,
+      success: true,
+    });
+
+    const { passwordHash, passwordSalt, ...safeUser } = user;
+    res.json({ success: true, user: safeUser, message: 'Perfil atualizado com sucesso!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Admin: User Management (List, Create, Update, Delete)
+// ----------------------------------------------------
+app.get('/api/v1/users', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const isSuperAdmin = req.adminSession?.role === 'super_admin' || req.adminSession?.role === 'admin';
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Acesso negado: permissão restrita a administradores.' });
+    }
+
+    const usersWithStats = store.getUsersWithStats();
+    res.json({ success: true, users: usersWithStats });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/users', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const isSuperAdmin = req.adminSession?.role === 'super_admin' || req.adminSession?.role === 'admin';
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Acesso negado: permissão restrita a administradores.' });
+    }
+
+    const { name, email, password, role, phone, companyName, platformFeePercentage } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, error: 'Nome, e-mail e palavra-passe são obrigatórios.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = store.getUserByEmail(cleanEmail);
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'Este e-mail já se encontra registado.' });
+    }
+
+    const { hash, salt } = createAdminPasswordHash(password);
+    const userId = `usr_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    const userRole = role === 'admin' || role === 'super_admin' ? role : 'developer';
+
+    const newUser: AdminUser = {
+      id: userId,
+      email: cleanEmail,
+      name: name.trim(),
+      phone: phone ? phone.trim() : undefined,
+      companyName: companyName ? companyName.trim() : undefined,
+      role: userRole,
+      passwordHash: hash,
+      passwordSalt: salt,
+      status: 'active',
+      platformFeePercentage: platformFeePercentage !== undefined ? Number(platformFeePercentage) : 20,
+      createdAt: new Date().toISOString(),
+    };
+
+    store.saveUser(newUser);
+
+    // If role is developer, auto-create a default app for them
+    if (userRole === 'developer') {
+      const randHex = (n = 16) => randomBytes(n).toString('hex');
+      const newApp: ClientApp = {
+        id: `app_${Date.now()}_${randHex(4)}`,
+        name: companyName ? `${companyName} App` : `Projeto Principal ${newUser.name}`,
+        description: 'Projeto para integração da API Pay Yetux (Multicaixa Express & GPR).',
+        userId: newUser.id,
+        userEmail: newUser.email,
+        apiKeyLive: `nvx_live_${randHex(12)}`,
+        secretKeyLive: `gw_sec_live_${randHex(16)}`,
+        apiKeyTest: `py_test_${randHex(12)}`,
+        secretKeyTest: `gw_sec_test_${randHex(16)}`,
+        webhookUrl: '',
+        webhookSecret: `whsec_${randHex(16)}`,
+        webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      store.saveApp(newApp);
+    }
+
+    const { passwordHash, passwordSalt, ...safeUser } = newUser;
+    res.status(201).json({ success: true, user: safeUser, message: 'Utilizador criado com sucesso!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/v1/users/:id', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const isSuperAdmin = req.adminSession?.role === 'super_admin' || req.adminSession?.role === 'admin';
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Acesso negado: permissão restrita a administradores.' });
+    }
+
+    const user = store.getUserById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Utilizador não encontrado.' });
+    }
+
+    const { name, phone, companyName, role, status, platformFeePercentage, newPassword } = req.body;
+    if (name) user.name = name.trim();
+    if (phone !== undefined) user.phone = phone.trim();
+    if (companyName !== undefined) user.companyName = companyName.trim();
+    if (role && user.role !== 'super_admin') user.role = role;
+    if (status && user.role !== 'super_admin') user.status = status;
+    if (platformFeePercentage !== undefined) user.platformFeePercentage = Number(platformFeePercentage);
+
+    if (newPassword && newPassword.length >= 6) {
+      const { hash, salt } = createAdminPasswordHash(newPassword);
+      user.passwordHash = hash;
+      user.passwordSalt = salt;
+    }
+
+    store.saveUser(user);
+    const { passwordHash, passwordSalt, ...safeUser } = user;
+    res.json({ success: true, user: safeUser, message: 'Utilizador atualizado com sucesso!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/v1/users/:id', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const isSuperAdmin = req.adminSession?.role === 'super_admin' || req.adminSession?.role === 'admin';
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Acesso negado: permissão restrita a administradores.' });
+    }
+
+    const targetUser = store.getUserById(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'Utilizador não encontrado.' });
+    }
+
+    if (targetUser.role === 'super_admin' || targetUser.id === req.adminSession?.userId) {
+      return res.status(400).json({ success: false, error: 'Não é permitido eliminar o Super Administrador ou a sua própria conta ativa.' });
+    }
+
+    const deleted = store.deleteUser(req.params.id);
+    res.json({ success: deleted, message: 'Utilizador removido com sucesso.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
 // Health Check
 // ----------------------------------------------------
 app.get('/api/health', (_req, res) => {
@@ -248,9 +584,10 @@ app.get('/api/health', (_req, res) => {
 // ----------------------------------------------------
 // Dashboard Stats (Protected)
 // ----------------------------------------------------
-app.get('/api/v1/stats', requireAdminAuth, (_req, res) => {
+app.get('/api/v1/stats', requireAdminAuth, (req: CustomRequest, res: Response) => {
   try {
-    const stats = store.getStats();
+    const isDev = req.adminSession?.role === 'developer';
+    const stats = isDev ? store.getStats(req.adminSession?.userId) : store.getStats();
     res.json({ success: true, stats });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -261,9 +598,10 @@ app.get('/api/v1/stats', requireAdminAuth, (_req, res) => {
 // Charges / Transactions
 // ----------------------------------------------------
 // List charges with optional filters (Protected)
-app.get('/api/v1/charges', requireAdminAuth, (req, res) => {
+app.get('/api/v1/charges', requireAdminAuth, (req: CustomRequest, res: Response) => {
   try {
-    let list = store.getCharges();
+    const isDev = req.adminSession?.role === 'developer';
+    let list = isDev ? store.getCharges(req.adminSession?.userId) : store.getCharges();
     const { status, method, appId, search } = req.query;
 
     if (status && status !== 'all') {
@@ -370,11 +708,17 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
       config
     );
 
+    const platformFeeRate = 0.20; // 20% platform fee Pay Yetux
+    const platformFee = Math.round(numAmount * platformFeeRate);
+    const netAmount = numAmount - platformFee;
+
     const newCharge: Charge = {
       id: `ch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       merchantTransactionId: txId,
       appId: appInfo?.id,
       appName: appInfo?.name || 'Gateway Checkout',
+      userId: appInfo?.userId || req.adminSession?.userId,
+      userEmail: appInfo?.userEmail || req.adminSession?.userEmail,
       providerId: provider.id,
       providerChargeId: providerResult.providerChargeId,
       amount: numAmount,
@@ -389,6 +733,9 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
       productId: product_id || productId,
       referenceDetails: providerResult.referenceDetails,
       environment: appInfo?.apiKeyTest?.includes(req.headers['authorization'] || '') ? 'test' : 'live',
+      platformFeeRate,
+      platformFee,
+      netAmount,
       createdAt: new Date().toISOString(),
       providerRawResponse: providerResult.rawResponse,
     };
@@ -815,33 +1162,34 @@ app.delete('/api/v1/products/:id', requireAdminAuth, (req, res) => {
 // ----------------------------------------------------
 // Client Applications & API Keys Management
 // ----------------------------------------------------
-app.get('/api/v1/apps', requireAdminAuth, (_req, res) => {
+app.get('/api/v1/apps', requireAdminAuth, (req: CustomRequest, res: Response) => {
   try {
-    const apps = store.getApps();
+    const isDev = req.adminSession?.role === 'developer';
+    const apps = isDev ? store.getApps(req.adminSession?.userId) : store.getApps();
     res.json({ success: true, apps });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/v1/apps', requireAdminAuth, (req, res) => {
+app.post('/api/v1/apps', requireAdminAuth, (req: CustomRequest, res: Response) => {
   try {
     const { name, description, userEmail, webhookUrl, webhookEvents } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, error: 'Nome da aplicação é obrigatório' });
     }
 
-    const randHex = (n = 16) => Math.random().toString(36).substring(2, 2 + n);
+    const randHex = (n = 16) => randomBytes(Math.ceil(n / 2)).toString('hex').substring(0, n);
 
     const newApp: ClientApp = {
       id: `app_${Date.now()}_${randHex(6)}`,
       name,
       description: description || '',
-      userId: `usr_${randHex(6)}`,
-      userEmail: userEmail || 'kaleyapt@gmail.com',
+      userId: req.adminSession?.userId || `usr_${randHex(6)}`,
+      userEmail: req.adminSession?.userEmail || userEmail || 'dev@payyetux.ao',
       apiKeyLive: `nvx_live_${randHex(18)}`,
       secretKeyLive: `gw_sec_live_${randHex(20)}`,
-      apiKeyTest: `nvx_test_${randHex(18)}`,
+      apiKeyTest: `py_test_${randHex(18)}`,
       secretKeyTest: `gw_sec_test_${randHex(20)}`,
       webhookUrl: webhookUrl || '',
       webhookSecret: `whsec_${randHex(20)}`,

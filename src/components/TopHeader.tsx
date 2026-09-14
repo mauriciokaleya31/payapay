@@ -19,6 +19,7 @@ interface TopHeaderProps {
   onOpenQuickCharge: () => void;
   adminUser: AdminUser | null;
   onLogout: () => void;
+  onOpenProfile: () => void;
   environment: 'live' | 'test';
 }
 
@@ -61,6 +62,7 @@ export function TopHeader({
   onOpenQuickCharge,
   adminUser,
   onLogout,
+  onOpenProfile,
   environment,
 }: TopHeaderProps) {
   const currentTabInfo = tabTitles[activeTab] || {
@@ -132,20 +134,35 @@ export function TopHeader({
               <span>Nova Cobrança</span>
             </button>
 
-            {/* Admin User Mini Badge */}
-            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-800">
-              <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs">
-                {adminUser?.email ? adminUser.email.charAt(0).toUpperCase() : 'A'}
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-medium text-slate-200 block leading-tight">
-                  {adminUser?.name || 'Administrador'}
+            {/* User Profile Mini Badge (Clickable to Edit Profile) */}
+            <button
+              id="header-btn-profile"
+              type="button"
+              onClick={onOpenProfile}
+              className="hidden sm:flex items-center gap-2.5 pl-3 py-1 pr-2 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-800/50 transition-all text-left group"
+              title="Editar Perfil da Conta"
+            >
+              {adminUser?.avatarUrl ? (
+                <img
+                  src={adminUser.avatarUrl}
+                  alt={adminUser.name}
+                  referrerPolicy="no-referrer"
+                  className="w-7 h-7 rounded-full object-cover border border-emerald-500/40"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                  {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
+              <div className="text-left">
+                <span className="text-xs font-semibold text-slate-200 block leading-tight group-hover:text-emerald-300 transition-colors">
+                  {adminUser?.name || 'Utilizador'}
                 </span>
-                <span className="text-[10px] text-slate-400 block font-mono">
-                  {adminUser?.email || 'kaleyapt@gmail.com'}
+                <span className="text-[10px] text-slate-400 block font-mono leading-none mt-0.5">
+                  {adminUser?.role === 'super_admin' ? 'Super Admin' : adminUser?.role === 'admin' ? 'Admin' : 'Desenvolvedor'}
                 </span>
               </div>
-            </div>
+            </button>
 
             {/* Logout button */}
             <button

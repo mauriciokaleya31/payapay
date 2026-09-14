@@ -56,6 +56,8 @@ export interface Charge {
   merchantTransactionId: string;
   appId?: string;
   appName?: string;
+  userId?: string;
+  userEmail?: string;
   providerId: string;
   providerChargeId?: string;
   amount: number;
@@ -71,6 +73,9 @@ export interface Charge {
   referenceDetails?: PaymentReferenceDetails; // For GPR
   metadata?: Record<string, any>;
   environment: 'live' | 'test';
+  platformFeeRate: number; // e.g. 0.20 for 20%
+  platformFee: number; // e.g. 2000 for 10000 gross
+  netAmount: number; // e.g. 8000 (amount - platformFee)
   createdAt: string;
   paidAt?: string;
   failedAt?: string;
@@ -119,13 +124,22 @@ export interface AdminUser {
   id: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'admin' | 'support';
+  phone?: string;
+  avatarUrl?: string;
+  companyName?: string;
+  role: 'super_admin' | 'admin' | 'developer' | 'support';
   passwordHash: string;
   passwordSalt: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'blocked';
+  platformFeePercentage?: number; // default 20%
   createdAt: string;
   lastLoginAt?: string;
   lastLoginIp?: string;
+  stats?: {
+    totalApps: number;
+    totalCharges: number;
+    totalSalesVolume: number;
+  };
 }
 
 export interface AuthSession {
@@ -209,6 +223,10 @@ export interface GatewayStats {
   totalTransactionsCount: number;
   conversionRate: number;
   availableBalance?: number;
+  totalPlatformRevenue?: number; // 20% platform fees retained by Pay Yetux
+  totalDevelopersCount?: number;
+  activeDevelopersCount?: number;
+  totalAppsCount?: number;
   volumeByMethod: {
     gpo: number;
     gpr: number;

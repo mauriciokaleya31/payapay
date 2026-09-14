@@ -9,6 +9,8 @@ import { StoreView } from './components/StoreView';
 import { DeveloperApiView } from './components/DeveloperApiView';
 import { DeveloperPortalView } from './components/DeveloperPortalView';
 import { AdminProvidersView } from './components/AdminProvidersView';
+import { UsersManagementView } from './components/UsersManagementView';
+import { ProfileModal } from './components/ProfileModal';
 import { HostedCheckoutModal } from './components/HostedCheckoutModal';
 import { api, setOnUnauthorizedCallback } from './services/api';
 import { 
@@ -38,6 +40,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
   // Navigation & UI States
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -92,6 +95,9 @@ export default function App() {
         if (user) {
           setAdminUser(user);
           setIsAuthenticated(true);
+          if (user.role === 'developer') {
+            setActiveTab('developer_portal');
+          }
         } else {
           setIsAuthenticated(false);
           setAdminUser(null);
@@ -161,6 +167,11 @@ export default function App() {
   const handleLoginSuccess = (user: AdminUser) => {
     setAdminUser(user);
     setIsAuthenticated(true);
+    if (user.role === 'developer') {
+      setActiveTab('developer_portal');
+    } else {
+      setActiveTab('dashboard');
+    }
     showToast('Sessão Iniciada', `Bem-vindo, ${user.name} (${user.email})`);
     loadData();
   };
@@ -348,6 +359,7 @@ export default function App() {
         adminUser={adminUser}
         onLogout={handleLogout}
         onOpenQuickCharge={() => setIsQuickChargeOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
         providers={providers}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
@@ -364,11 +376,16 @@ export default function App() {
           onOpenQuickCharge={() => setIsQuickChargeOpen(true)}
           adminUser={adminUser}
           onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileOpen(true)}
           environment={environment}
         />
 
         {/* Dynamic Tab Views */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {activeTab === 'users' && adminUser && (
+            <UsersManagementView currentUser={adminUser} />
+          )}
+
           {activeTab === 'dashboard' && (
             <DashboardView
               stats={stats}
@@ -599,6 +616,19 @@ export default function App() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Profile Edit Modal */}
+      {adminUser && (
+        <ProfileModal
+          user={adminUser}
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          onUserUpdated={(updatedUser) => {
+            setAdminUser(updatedUser);
+            showToast('Perfil Atualizado', 'As informações da sua conta foram salvas.');
+          }}
+        />
       )}
 
       {/* Floating Toast Notification */}

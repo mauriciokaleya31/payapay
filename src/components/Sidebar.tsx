@@ -15,7 +15,9 @@ import {
   ExternalLink,
   ChevronRight,
   Server,
-  Terminal
+  Terminal,
+  Users,
+  UserCog
 } from 'lucide-react';
 import { AdminUser, ProviderConfig } from '../types';
 
@@ -27,6 +29,7 @@ interface SidebarProps {
   adminUser: AdminUser | null;
   onLogout: () => void;
   onOpenQuickCharge: () => void;
+  onOpenProfile: () => void;
   providers: ProviderConfig[];
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
@@ -40,63 +43,105 @@ export function Sidebar({
   adminUser,
   onLogout,
   onOpenQuickCharge,
+  onOpenProfile,
   providers,
   isOpenMobile,
   onCloseMobile,
 }: SidebarProps) {
   const nuvexProvider = providers.find((p) => p.id === 'nuvex');
+  const isAdmin = adminUser?.role === 'super_admin' || adminUser?.role === 'admin';
 
-  const navigationItems = [
-    {
-      id: 'developer_portal',
-      label: 'Portal Dev & Empreendedor',
-      icon: Terminal,
-      description: 'Painel completo da API & Levantamentos',
-      isFeatured: true,
-    },
-    {
-      id: 'dashboard',
-      label: 'Visão Geral (Admin)',
-      icon: LayoutDashboard,
-      description: 'Métricas e volume financeiro global',
-    },
-    {
-      id: 'transactions',
-      label: 'Transações',
-      icon: ArrowLeftRight,
-      description: 'Multicaixa Express e GPR',
-    },
-    {
-      id: 'links',
-      label: 'Links de Pagamento',
-      icon: LinkIcon,
-      description: 'Checkouts diretos e partilháveis',
-    },
-    {
-      id: 'store',
-      label: 'Produtos & Catálogo',
-      icon: ShoppingBag,
-      description: 'Itens com link integrado',
-    },
-    {
-      id: 'apps',
-      label: 'Aplicações & API Keys',
-      icon: Key,
-      description: 'Credenciais para desenvolvedores',
-    },
-    {
-      id: 'providers',
-      label: 'Provedores de Pagamento',
-      icon: Sliders,
-      description: 'Nuvex API e conectores',
-    },
-    {
-      id: 'logs',
-      label: 'Logs & Auditoria',
-      icon: ScrollText,
-      description: 'Webhooks, HMAC e eventos',
-    },
-  ];
+  const navigationItems = isAdmin
+    ? [
+        {
+          id: 'dashboard',
+          label: 'Visão Geral (Admin)',
+          icon: LayoutDashboard,
+          description: 'Métricas e volume financeiro global',
+        },
+        {
+          id: 'users',
+          label: 'Utilizadores & Devs',
+          icon: Users,
+          description: 'Gestão de contas, devs e taxa 20%',
+          isFeatured: true,
+        },
+        {
+          id: 'transactions',
+          label: 'Transações Globais',
+          icon: ArrowLeftRight,
+          description: 'Multicaixa Express e GPR',
+        },
+        {
+          id: 'links',
+          label: 'Links de Pagamento',
+          icon: LinkIcon,
+          description: 'Checkouts diretos e partilháveis',
+        },
+        {
+          id: 'store',
+          label: 'Produtos & Catálogo',
+          icon: ShoppingBag,
+          description: 'Itens com link integrado',
+        },
+        {
+          id: 'apps',
+          label: 'Aplicações & API Keys',
+          icon: Key,
+          description: 'Credenciais e webhooks dos clientes',
+        },
+        {
+          id: 'providers',
+          label: 'Provedores de Pagamento',
+          icon: Sliders,
+          description: 'Nuvex API e conectores',
+        },
+        {
+          id: 'developer_portal',
+          label: 'Portal Dev & Levantamento',
+          icon: Terminal,
+          description: 'Simulação e ferramentas de dev',
+        },
+        {
+          id: 'logs',
+          label: 'Logs & Auditoria',
+          icon: ScrollText,
+          description: 'Webhooks, HMAC e eventos',
+        },
+      ]
+    : [
+        {
+          id: 'developer_portal',
+          label: 'Portal Dev & Empreendedor',
+          icon: Terminal,
+          description: 'Chaves de API, levantamento e saldo',
+          isFeatured: true,
+        },
+        {
+          id: 'apps',
+          label: 'Minhas Aplicações & API Keys',
+          icon: Key,
+          description: 'Credenciais Live/Sandbox e Webhooks',
+        },
+        {
+          id: 'transactions',
+          label: 'Minhas Transações',
+          icon: ArrowLeftRight,
+          description: 'Histórico de pagamentos recebidos',
+        },
+        {
+          id: 'links',
+          label: 'Links de Pagamento',
+          icon: LinkIcon,
+          description: 'Checkouts diretos e partilháveis',
+        },
+        {
+          id: 'store',
+          label: 'Produtos & Loja',
+          icon: ShoppingBag,
+          description: 'Catálogo de itens para venda',
+        },
+      ];
 
   const handleSelectTab = (tabId: string) => {
     setActiveTab(tabId);
@@ -255,36 +300,63 @@ export function Sidebar({
           </a>
         </nav>
 
-        {/* Admin User Footer Profile & Logout */}
+        {/* User Footer Profile & Logout */}
         <div className="p-3.5 border-t border-slate-800 bg-slate-950/80">
-          <div className="flex items-center justify-between mb-2">
+          <div 
+            onClick={onOpenProfile}
+            role="button"
+            tabIndex={0}
+            className="flex items-center justify-between mb-2.5 p-2 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/40 hover:bg-slate-800/40 cursor-pointer transition-all group"
+            title="Clique para editar o seu perfil"
+          >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-bold text-xs shrink-0">
-                {adminUser?.email ? adminUser.email.charAt(0).toUpperCase() : 'A'}
-              </div>
+              {adminUser?.avatarUrl ? (
+                <img
+                  src={adminUser.avatarUrl}
+                  alt={adminUser.name}
+                  referrerPolicy="no-referrer"
+                  className="w-8 h-8 rounded-full object-cover border border-emerald-500/30 shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-bold text-xs shrink-0">
+                  {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
               <div className="truncate">
-                <p className="text-xs font-medium text-slate-200 truncate leading-tight">
-                  {adminUser?.name || 'Administrador'}
+                <p className="text-xs font-semibold text-slate-200 truncate leading-tight group-hover:text-emerald-300 transition-colors">
+                  {adminUser?.name || 'Utilizador'}
                 </p>
                 <p className="text-[10px] text-slate-400 truncate font-mono">
-                  {adminUser?.email || 'kaleyapt@gmail.com'}
+                  {adminUser?.email || ''}
                 </p>
               </div>
             </div>
-            <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-              {adminUser?.role === 'superadmin' ? 'Super Admin' : 'Admin'}
+            <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+              {adminUser?.role === 'super_admin' ? 'Super Admin' : adminUser?.role === 'admin' ? 'Admin' : 'Dev'}
             </span>
           </div>
 
-          <button
-            id="sidebar-btn-logout"
-            type="button"
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-900/30 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Terminar Sessão Segura</span>
-          </button>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              id="sidebar-btn-profile"
+              type="button"
+              onClick={onOpenProfile}
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition-colors"
+            >
+              <UserCog className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Meu Perfil</span>
+            </button>
+
+            <button
+              id="sidebar-btn-logout"
+              type="button"
+              onClick={onLogout}
+              className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[11px] font-medium text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/30 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sair</span>
+            </button>
+          </div>
         </div>
       </aside>
     </>

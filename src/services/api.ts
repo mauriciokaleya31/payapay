@@ -78,6 +78,119 @@ export const api = {
     return data;
   },
 
+  register: async (payload: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    companyName?: string;
+  }): Promise<AuthResponse & { app?: ClientApp }> => {
+    const res = await fetch('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Falha no registo de conta');
+    }
+    if (data.token) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+    }
+    if (data.user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    }
+    return data;
+  },
+
+  getProfile: async (): Promise<AdminUser> => {
+    const res = await handleResponse(await fetch('/api/v1/auth/profile', { headers: getHeaders() }));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao carregar perfil');
+    if (data.user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    }
+    return data.user;
+  },
+
+  updateProfile: async (payload: {
+    name?: string;
+    phone?: string;
+    companyName?: string;
+    avatarUrl?: string;
+    email?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  }): Promise<{ user: AdminUser; message: string }> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/auth/profile', {
+        method: 'PUT',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao atualizar perfil');
+    if (data.user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    }
+    return data;
+  },
+
+  // User Management for Super Admin
+  getUsers: async (): Promise<AdminUser[]> => {
+    const res = await handleResponse(await fetch('/api/v1/users', { headers: getHeaders() }));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao listar utilizadores');
+    return data.users || [];
+  },
+
+  createUser: async (payload: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+    phone?: string;
+    companyName?: string;
+    platformFeePercentage?: number;
+  }): Promise<{ user: AdminUser; message: string }> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/users', {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao criar utilizador');
+    return data;
+  },
+
+  updateUser: async (id: string, payload: any): Promise<{ user: AdminUser; message: string }> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao atualizar utilizador');
+    return data;
+  },
+
+  deleteUser: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/users/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao remover utilizador');
+    return data;
+  },
+
   checkAuth: async (): Promise<AdminUser | null> => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return null;
