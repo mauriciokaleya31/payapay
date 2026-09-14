@@ -26,6 +26,7 @@ interface DeveloperApiViewProps {
   onUpdateApp: (id: string, payload: Partial<ClientApp>) => Promise<void>;
   onDeleteApp: (id: string) => Promise<void>;
   onTestWebhook: (url: string, secret: string, event: string) => Promise<any>;
+  onOpenFullPortal?: () => void;
 }
 
 export const DeveloperApiView: React.FC<DeveloperApiViewProps> = ({
@@ -34,6 +35,7 @@ export const DeveloperApiView: React.FC<DeveloperApiViewProps> = ({
   onUpdateApp,
   onDeleteApp,
   onTestWebhook,
+  onOpenFullPortal,
 }) => {
   const [selectedAppId, setSelectedAppId] = useState<string>(apps[0]?.id || '');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -203,14 +205,25 @@ app.post('/api/webhooks/gateway', express.raw({ type: 'application/json' }), (re
           </p>
         </div>
 
-        <button
-          id="btn-criar-app"
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nova Aplicação</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          {onOpenFullPortal && (
+            <button
+              onClick={onOpenFullPortal}
+              className="flex items-center space-x-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all"
+            >
+              <Terminal className="w-4 h-4 text-emerald-600" />
+              <span>Abrir Portal Dev & Empreendedor</span>
+            </button>
+          )}
+          <button
+            id="btn-criar-app"
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nova Aplicação</span>
+          </button>
+        </div>
       </div>
 
       {/* App Selector Tabs */}

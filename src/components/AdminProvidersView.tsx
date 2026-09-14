@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Settings, 
@@ -16,7 +16,9 @@ import {
   CreditCard,
   Layers,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { ProviderConfig, PaymentMethodType, AuditLog } from '../types';
 
@@ -24,8 +26,13 @@ interface AdminProvidersViewProps {
   providers: ProviderConfig[];
   logs: AuditLog[];
   onUpdateProvider: (id: string, payload: Partial<ProviderConfig>) => Promise<void>;
-  onTestConnection: (id: string) => Promise<{ success: boolean; latencyMs: number; message: string }>;
+  onTestConnection: (
+    id: string,
+    override?: Partial<ProviderConfig>
+  ) => Promise<{ success: boolean; latencyMs: number; message: string }>;
   onRefreshLogs: () => void;
+  onCreateProvider?: (payload: Partial<ProviderConfig>) => Promise<void>;
+  onDeleteProvider?: (id: string) => Promise<void>;
 }
 
 export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
@@ -34,6 +41,8 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
   onUpdateProvider,
   onTestConnection,
   onRefreshLogs,
+  onCreateProvider,
+  onDeleteProvider,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'providers' | 'logs'>('providers');
   const [selectedProviderId, setSelectedProviderId] = useState<string>('nuvex');
@@ -43,8 +52,28 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
   const [testResults, setTestResults] = useState<Record<string, any>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [logFilter, setLogFilter] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newGatewayForm, setNewGatewayForm] = useState({
+    name: '',
+    description: '',
+    apiUrl: '',
+    apiKey: '',
+    secretKey: '',
+    webhookSecret: '',
+    supportedMethods: ['GPO', 'GPR'] as PaymentMethodType[],
+    testMode: false,
+  });
 
   const selectedProvider = providers.find((p) => p.id === selectedProviderId) || providers[0];
+
+  useEffect(() => {
+    if (selectedProvider?.lastConnectionTest && !testResults[selectedProvider.id]) {
+      setTestResults((prev) => ({
+        ...prev,
+        [selectedProvider.id]: selectedProvider.lastConnectionTest,
+      }));
+    }
+  }, [selectedProviderId, selectedProvider?.lastConnectionTest]);
 
   const getEditValue = <K extends keyof ProviderConfig>(id: string, key: K): any => {
     if (editConfigs[id] && editConfigs[id][key] !== undefined) {
@@ -81,6 +110,9 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
     try {
       const changes = editConfigs[id] || {};
       await onUpdateProvider(id, changes);
+      // Run diagnostic test after save
+      const res = await onTestConnection(id, changes);
+      setTestResults((prev) => ({ ...prev, [id]: res }));
     } finally {
       setSavingId(null);
     }
@@ -89,7 +121,8 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
   const handleTest = async (id: string) => {
     setTestingId(id);
     try {
-      const res = await onTestConnection(id);
+      const changes = editConfigs[id] || {};
+      const res = await onTestConnection(id, changes);
       setTestResults((prev) => ({ ...prev, [id]: res }));
     } finally {
       setTestingId(null);
@@ -174,7 +207,17 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Providers Selector Sidebar */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Módulos Instalados</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Módulos Instalados</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Cadastrar Gateway
+                </button>
+              </div>
               {providers.map((p) => {
                 const isSelected = selectedProviderId === p.id;
                 return (
@@ -230,6 +273,23 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-3">
+                    {selectedProvider.id !== 'nuvex' && onDeleteProvider && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm(`Tem a certeza que pretende remover o gateway ${selectedProvider.name}?`)) {
+                            await onDeleteProvider(selectedProvider.id);
+                            setSelectedProviderId('nuvex');
+                          }
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1 transition-all"
+                        title="Remover este gateway adicional"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remover
+                      </button>
+                    )}
+
                     <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl">
                       <button
                         type="button"
@@ -266,7 +326,7 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
                           : 'bg-slate-200 text-slate-700'
                       }`}
                     >
-                      {getEditValue(selectedProvider.id, 'isActive') ? 'Activado' : 'Desactivado'}
+                      {getEditValue(selectedProvider.id, 'isActive') ? 'Ativo' : 'Desativado'}
                     </button>
                   </div>
                 </div>
@@ -517,6 +577,152 @@ export const AdminProvidersView: React.FC<AdminProvidersViewProps> = ({
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Cadastrar Novo Gateway Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Cadastrar Novo Gateway de Pagamento</h3>
+                <p className="text-xs text-slate-500">Adicione outros provedores ou APIs ao Pay Yetux</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newGatewayForm.name || !newGatewayForm.apiUrl) {
+                  alert('Por favor preencha pelo menos o Nome e a URL da API');
+                  return;
+                }
+                if (onCreateProvider) {
+                  await onCreateProvider(newGatewayForm);
+                  setShowCreateModal(false);
+                  setNewGatewayForm({
+                    name: '',
+                    description: '',
+                    apiUrl: '',
+                    apiKey: '',
+                    secretKey: '',
+                    webhookSecret: '',
+                    supportedMethods: ['GPO', 'GPR'],
+                    testMode: false,
+                  });
+                }
+              }}
+              className="mt-4 space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Nome do Gateway *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: EMIS Multicaixa, ProxyPay, BAI Directo"
+                  value={newGatewayForm.name}
+                  onChange={(e) => setNewGatewayForm({ ...newGatewayForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Descrição</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Gateway nacional para cobranças automáticas"
+                  value={newGatewayForm.description}
+                  onChange={(e) => setNewGatewayForm({ ...newGatewayForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">URL Base da API (Endpoint) *</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://api.gateway.ao/v1"
+                  value={newGatewayForm.apiUrl}
+                  onChange={(e) => setNewGatewayForm({ ...newGatewayForm, apiUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-mono text-[11px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">API Key / Token</label>
+                  <input
+                    type="password"
+                    placeholder="Chave pública ou token"
+                    value={newGatewayForm.apiKey}
+                    onChange={(e) => setNewGatewayForm({ ...newGatewayForm, apiKey: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-mono text-[11px]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Secret Key</label>
+                  <input
+                    type="password"
+                    placeholder="Chave secreta"
+                    value={newGatewayForm.secretKey}
+                    onChange={(e) => setNewGatewayForm({ ...newGatewayForm, secretKey: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Webhook Secret (Assinatura)</label>
+                <input
+                  type="password"
+                  placeholder="Segredo para validar callbacks de webhook"
+                  value={newGatewayForm.webhookSecret}
+                  onChange={(e) => setNewGatewayForm({ ...newGatewayForm, webhookSecret: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-900 font-mono text-[11px]"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="new-gateway-testmode"
+                    checked={newGatewayForm.testMode}
+                    onChange={(e) => setNewGatewayForm({ ...newGatewayForm, testMode: e.target.checked })}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="new-gateway-testmode" className="text-slate-700 font-medium">
+                    Modo Sandbox (Testes)
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs transition-colors"
+                >
+                  Registar Gateway
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -5,11 +5,11 @@
       "email": "kaleyapt@gmail.com",
       "name": "Maurício",
       "role": "super_admin",
-      "passwordHash": "f29ad548c059c70d78063a1ef4d129ee3fba89c215167e568d4e0ae5f72419734cf30ba8ca8581d08407a08912a4c964262bebde27cac2a3d6ccc603014cbe04",
-      "passwordSalt": "3f87d0143dcc5462ac83f03e6fe7794c",
+      "passwordHash": "6b44f75cbb40fe58403cd1d1b580b457880c6f0b673520ebdeabf2dfbb67b2ec3eb4a1317a005bcecb86a1de0a8c5f77ea5fffdf994a245649a14a439c4b8337",
+      "passwordSalt": "7352941fe36438d9276a321043824ae5",
       "status": "active",
       "createdAt": "2026-09-14T03:46:17.386Z",
-      "lastLoginAt": "2026-09-14T03:51:48.633Z",
+      "lastLoginAt": "2026-09-14T03:57:32.952Z",
       "lastLoginIp": "127.0.0.1"
     }
   ],
@@ -35,9 +35,133 @@
       "expiresAt": "2026-09-21T03:51:48.633Z",
       "ip": "127.0.0.1",
       "userAgent": "curl/7.88.1"
+    },
+    {
+      "token": "adm_token_d1257628384a46d866fc858fc15f92f6edc1dfb578054348bf1fe30117b944f8",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "userName": "Maurício",
+      "role": "super_admin",
+      "createdAt": "2026-09-14T03:53:41.746Z",
+      "expiresAt": "2026-09-21T03:53:41.746Z",
+      "ip": "2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36"
+    },
+    {
+      "token": "adm_token_ea23442bbd058f328e28a19f6ab2fe9c71dbc92b82c484b9bee0ac1481519b3d",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "userName": "Maurício",
+      "role": "super_admin",
+      "createdAt": "2026-09-14T03:57:32.952Z",
+      "expiresAt": "2026-09-21T03:57:32.952Z",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.88.1"
     }
   ],
   "charges": [
+    {
+      "id": "ch_1789358479699_gs9b",
+      "merchantTransactionId": "tx_1789358478173_xp47m",
+      "appName": "Gateway Checkout",
+      "providerId": "nuvex",
+      "providerChargeId": "66265521-f7ca-4aeb-bd2f-0fed5fa7a80f",
+      "amount": 2500,
+      "currency": "AOA",
+      "method": "GPR",
+      "description": "Teste Real Nuvex GPR",
+      "status": "pending",
+      "referenceDetails": {
+        "entity": "10111",
+        "reference": "116 216 551",
+        "amount": 2500,
+        "expiryDate": "2026-09-14T08:01:19.671Z"
+      },
+      "environment": "live",
+      "createdAt": "2026-09-14T04:01:19.699Z",
+      "providerRawResponse": {
+        "id": "66265521-f7ca-4aeb-bd2f-0fed5fa7a80f",
+        "status": "pending",
+        "method": "GPR",
+        "amount": 2500,
+        "currency": "AOA",
+        "merchant_transaction_id": "tx_1789358478173_xp47m",
+        "reference": {
+          "entity": "10111",
+          "reference": "116216551"
+        },
+        "payment_url": null,
+        "expires_at": "2026-09-14T08:01:19.671Z",
+        "created_at": "2026-09-14T04:01:19.671429+00:00",
+        "provider_reference": "98f0757b-3e51-44c6-b1c1-e2ba685eb3de"
+      }
+    },
+    {
+      "id": "ch_1789358185712_ccqb",
+      "merchantTransactionId": "tx_1789358184249_jzmvm",
+      "appName": "Gateway Checkout",
+      "providerId": "nuvex",
+      "providerChargeId": "aa1086e9-f11a-43da-98ba-2fd34bfe4cb9",
+      "amount": 1000,
+      "currency": "AOA",
+      "method": "GPR",
+      "description": "Cobrança Rápida Nuvex",
+      "customerName": "Cliente Luanda",
+      "status": "pending",
+      "referenceDetails": {
+        "entity": "00123",
+        "reference": {
+          "entity": "10111",
+          "reference": "211548499"
+        },
+        "amount": 1000,
+        "expiryDate": "2026-09-16T03:56:25.712Z"
+      },
+      "environment": "live",
+      "createdAt": "2026-09-14T03:56:25.712Z",
+      "providerRawResponse": {
+        "id": "aa1086e9-f11a-43da-98ba-2fd34bfe4cb9",
+        "status": "pending",
+        "method": "GPR",
+        "amount": 1000,
+        "currency": "AOA",
+        "merchant_transaction_id": "tx_1789358184249_jzmvm",
+        "reference": {
+          "entity": "10111",
+          "reference": "211548499"
+        },
+        "payment_url": null,
+        "expires_at": "2026-09-14T07:56:25.684Z",
+        "created_at": "2026-09-14T03:56:25.684644+00:00",
+        "provider_reference": "557abb75-d6b0-4f0e-bd6d-dbb945f230fb"
+      }
+    },
+    {
+      "id": "ch_1789358164637_o6bc",
+      "merchantTransactionId": "tx_1789358156635_at6sk",
+      "appName": "Gateway Checkout",
+      "providerId": "nuvex",
+      "providerChargeId": "nvx_ch_vhio0l8",
+      "amount": 15000,
+      "currency": "AOA",
+      "method": "GPO",
+      "phoneNumber": "923456789",
+      "description": "Cobrança Rápida Nuvex",
+      "customerName": "Cliente Luanda",
+      "status": "pending",
+      "environment": "live",
+      "createdAt": "2026-09-14T03:56:04.637Z",
+      "providerRawResponse": {
+        "id": "nvx_ch_vhio0l8",
+        "amount": 15000,
+        "method": "GPO",
+        "status": "pending",
+        "phone_number": "923456789",
+        "merchant_transaction_id": "tx_1789358156635_at6sk",
+        "mode": "live",
+        "message": "Notificação push enviada para o terminal Multicaixa Express do cliente."
+      }
+    },
     {
       "id": "ch_1789357905996_nm5n",
       "merchantTransactionId": "tx_1789357905996_iev7s",
@@ -143,6 +267,121 @@
   ],
   "logs": [
     {
+      "id": "log_1789358479699_ycrj",
+      "timestamp": "2026-09-14T04:01:19.699Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 2500 Kz (GPR)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789358478173_xp47m",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789358479699_gs9b",
+      "payload": {
+        "amount": 2500,
+        "method": "GPR"
+      }
+    },
+    {
+      "id": "log_1789358475717_y3ei",
+      "timestamp": "2026-09-14T04:01:15.717Z",
+      "type": "provider_sync",
+      "title": "Teste de Conexão com Provedor (nuvex)",
+      "details": "Credenciais Nuvex validadas e autenticadas com sucesso (330ms). Provedor pronto para produção.",
+      "endpoint": "/api/v1/providers/nuvex/test",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358252953_gi6k",
+      "timestamp": "2026-09-14T03:57:32.953Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 127.0.0.1. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358185712_4i8h",
+      "timestamp": "2026-09-14T03:56:25.712Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 1000 Kz (GPR)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789358184249_jzmvm",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789358185712_ccqb",
+      "payload": {
+        "amount": 1000,
+        "method": "GPR"
+      }
+    },
+    {
+      "id": "log_1789358164637_nuj6",
+      "timestamp": "2026-09-14T03:56:04.637Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 15000 Kz (GPO)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789358156635_at6sk",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789358164637_o6bc",
+      "payload": {
+        "amount": 15000,
+        "method": "GPO"
+      }
+    },
+    {
+      "id": "log_1789358128502_1iw6",
+      "timestamp": "2026-09-14T03:55:28.502Z",
+      "type": "provider_sync",
+      "title": "Teste de Conexão com Provedor (nuvex)",
+      "details": "Servidor Nuvex operacional (495ms). Modo Sandbox activo (insira a sua chave Live oficial para autenticação de produção).",
+      "endpoint": "/api/v1/providers/nuvex/test",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358125072_459u",
+      "timestamp": "2026-09-14T03:55:25.072Z",
+      "type": "provider_config",
+      "title": "Configuração atualizada para o provedor Nuvex Pagamentos",
+      "details": "Status ativo: true | Modo teste: false | Métodos: GPR, GPO",
+      "endpoint": "/api/v1/providers/nuvex",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358110036_yhqn",
+      "timestamp": "2026-09-14T03:55:10.036Z",
+      "type": "provider_sync",
+      "title": "Teste de Conexão com Provedor (nuvex)",
+      "details": "Servidor Nuvex operacional (677ms). Modo Sandbox activo (insira a sua chave Live oficial para autenticação de produção).",
+      "endpoint": "/api/v1/providers/nuvex/test",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358107165_fcen",
+      "timestamp": "2026-09-14T03:55:07.165Z",
+      "type": "provider_config",
+      "title": "Configuração atualizada para o provedor Nuvex Pagamentos",
+      "details": "Status ativo: true | Modo teste: true | Métodos: GPR, GPO",
+      "endpoint": "/api/v1/providers/nuvex",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789358021746_qj3l",
+      "timestamp": "2026-09-14T03:53:41.746Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 2c0f:f888:a980:1aee:4904:69b3:1a30:fa77, 169.254.169.126. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
       "id": "log_1789357952347_oowl",
       "timestamp": "2026-09-14T03:52:32.347Z",
       "type": "provider_sync",
@@ -223,5 +462,28 @@
       "timestamp": "2026-09-14T03:46:17.387Z"
     }
   ],
-  "providers": []
+  "providers": [
+    {
+      "id": "nuvex",
+      "name": "Nuvex Pagamentos",
+      "description": "Gateway angolano especializado em Multicaixa Express (GPO) e Referências de Pagamento (GPR).",
+      "isActive": true,
+      "isDefault": true,
+      "apiUrl": "https://pagamentos-nuvex.lovable.app",
+      "apiKey": "nvx_live_5b2173_wqXHof2R0UWJ13tu3fFD5PIeoxDU2Vmb",
+      "secretKey": "",
+      "webhookSecret": "whsec_Yk-N75x06kmDWZPQP3yUVjXqzTUiQNyY",
+      "supportedMethods": [
+        "GPR",
+        "GPO"
+      ],
+      "testMode": false,
+      "lastConnectionTest": {
+        "timestamp": "2026-09-14T04:01:15.716Z",
+        "success": true,
+        "latencyMs": 330,
+        "message": "Credenciais Nuvex validadas e autenticadas com sucesso (330ms). Provedor pronto para produção."
+      }
+    }
+  ]
 }

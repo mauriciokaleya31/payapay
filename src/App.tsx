@@ -7,6 +7,7 @@ import { TransactionsView } from './components/TransactionsView';
 import { PaymentLinksView } from './components/PaymentLinksView';
 import { StoreView } from './components/StoreView';
 import { DeveloperApiView } from './components/DeveloperApiView';
+import { DeveloperPortalView } from './components/DeveloperPortalView';
 import { AdminProvidersView } from './components/AdminProvidersView';
 import { HostedCheckoutModal } from './components/HostedCheckoutModal';
 import { api, setOnUnauthorizedCallback } from './services/api';
@@ -277,8 +278,22 @@ export default function App() {
     showToast('Provedor Atualizado', 'Parâmetros de conexão e métodos salvos.');
   };
 
-  const handleTestConnection = async (id: string) => {
-    return await api.testProvider(id);
+  const handleCreateProvider = async (payload: Partial<ProviderConfig>) => {
+    await api.createProvider(payload);
+    await loadData();
+    showToast('Gateway Registado', 'O novo gateway foi integrado ao Pay Yetux.');
+  };
+
+  const handleDeleteProvider = async (id: string) => {
+    await api.deleteProvider(id);
+    await loadData();
+    showToast('Gateway Removido', 'O gateway foi removido da plataforma.');
+  };
+
+  const handleTestConnection = async (id: string, override?: Partial<ProviderConfig>) => {
+    const res = await api.testProvider(id, override);
+    await loadData();
+    return res;
   };
 
   const handleTestWebhook = async (url: string, secret: string, event: string) => {
@@ -399,6 +414,12 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'developer_portal' && (
+            <DeveloperPortalView
+              onSwitchToAdmin={() => setActiveTab('dashboard')}
+            />
+          )}
+
           {activeTab === 'apps' && (
             <DeveloperApiView
               apps={apps}
@@ -406,6 +427,7 @@ export default function App() {
               onUpdateApp={handleUpdateApp}
               onDeleteApp={handleDeleteApp}
               onTestWebhook={handleTestWebhook}
+              onOpenFullPortal={() => setActiveTab('developer_portal')}
             />
           )}
 
@@ -416,6 +438,8 @@ export default function App() {
               onUpdateProvider={handleUpdateProvider}
               onTestConnection={handleTestConnection}
               onRefreshLogs={loadData}
+              onCreateProvider={handleCreateProvider}
+              onDeleteProvider={handleDeleteProvider}
             />
           )}
 
@@ -426,6 +450,8 @@ export default function App() {
               onUpdateProvider={handleUpdateProvider}
               onTestConnection={handleTestConnection}
               onRefreshLogs={loadData}
+              onCreateProvider={handleCreateProvider}
+              onDeleteProvider={handleDeleteProvider}
             />
           )}
         </main>

@@ -1,7 +1,20 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Charge, PaymentLink, Product, ClientApp, AuditLog, GatewayStats, AdminUser, AuthSession, ProviderConfig } from './types.js';
+import { 
+  Charge, 
+  PaymentLink, 
+  Product, 
+  ClientApp, 
+  AuditLog, 
+  GatewayStats, 
+  AdminUser, 
+  AuthSession, 
+  ProviderConfig,
+  BankAccount,
+  KycDocument,
+  WithdrawalRequest
+} from './types.js';
 
 interface DatabaseSchema {
   users: AdminUser[];
@@ -12,6 +25,9 @@ interface DatabaseSchema {
   apps: ClientApp[];
   logs: AuditLog[];
   providers?: ProviderConfig[];
+  bankAccounts?: BankAccount[];
+  kycDocuments?: KycDocument[];
+  withdrawals?: WithdrawalRequest[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -34,6 +50,9 @@ class MemoryAndFileStore {
     apps: [],
     logs: [],
     providers: [],
+    bankAccounts: [],
+    kycDocuments: [],
+    withdrawals: [],
   };
 
   constructor() {
@@ -55,6 +74,9 @@ class MemoryAndFileStore {
           apps: parsed.apps || [],
           logs: parsed.logs || [],
           providers: parsed.providers || [],
+          bankAccounts: parsed.bankAccounts || [],
+          kycDocuments: parsed.kycDocuments || [],
+          withdrawals: parsed.withdrawals || [],
         };
       }
     } catch (err) {
@@ -155,16 +177,181 @@ class MemoryAndFileStore {
         },
       ];
 
-      // Catálogo de produtos limpo pronto para o administrador
       this.data.products = [];
+
+      // Bank Account inicial do utilizador
+      this.data.bankAccounts = [
+        {
+          id: 'bank_acc_mauricio',
+          userId: admin.id,
+          holderName: 'Mauricio Kaleya',
+          bankName: 'Banco Angolano de Investimentos (BAI)',
+          iban: '004000003224707910198',
+          accountNumber: '32247079101',
+          isVerified: true,
+          updatedAt: '2026-09-14T03:25:00Z',
+        },
+      ];
+
+      // Documentos de verificação KYC inicial
+      this.data.kycDocuments = [
+        {
+          id: 'kyc_doc_01',
+          userId: admin.id,
+          userEmail: adminEmail,
+          docType: 'identity',
+          docTypeLabel: 'Documento de identidade (BI ou passaporte)',
+          fileName: 'BI_Mauricio_Kaleya_Oficial.pdf',
+          fileSize: '1.8 MB',
+          status: 'verified',
+          submittedAt: '2026-09-14T03:28:00Z',
+          reviewedAt: '2026-09-14T03:30:00Z',
+          notes: 'Identificação pessoal aprovada para operações e levantamentos bancários.',
+        },
+      ];
+
+      // Projetos de Desenvolvedor (Cada projeto tem chave de API e webhook próprios)
+      const initialProjectKey = 'nvx_live_5b2173ea901844bca';
+      this.data.apps = [
+        {
+          id: 'prj_chave_inicial',
+          name: 'Chave inicial',
+          description: 'Projeto primário para integração de aplicativos e checkout com a API Pay Yetux.',
+          userId: admin.id,
+          userEmail: adminEmail,
+          apiKeyLive: initialProjectKey,
+          secretKeyLive: 'gw_sec_live_9a48f831bc4029a7',
+          apiKeyTest: 'py_test_7e31b942ac1104e2',
+          secretKeyTest: 'gw_sec_test_7e31b942ac1104e2',
+          webhookUrl: '', // Sem callback
+          webhookSecret: 'whsec_payyetux_chave_inicial',
+          webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
+          isActive: true,
+          createdAt: '2026-09-14T03:29:00Z',
+        },
+      ];
+
+      // Transações com o estado inicial: 0 concluídos, 3 pendentes, 0/6 transações (0.0% conversão)
+      this.data.charges = [
+        {
+          id: 'ch_01_gpr_pending',
+          merchantTransactionId: 'tx_pay_17893581001',
+          appId: 'prj_chave_inicial',
+          appName: 'Chave inicial',
+          providerId: 'nuvex',
+          providerChargeId: '66265521-f7ca-4aeb-bd2f-0fed5fa7a80f',
+          amount: 5000,
+          currency: 'AOA',
+          method: 'GPR',
+          description: 'Faturação de Serviço Web #1041',
+          status: 'pending',
+          referenceDetails: {
+            entity: '10111',
+            reference: '116 216 551',
+            amount: 5000,
+            expiryDate: '2026-09-15T08:00:00.000Z',
+          },
+          environment: 'live',
+          createdAt: '2026-09-14T03:32:10.000Z',
+        },
+        {
+          id: 'ch_02_gpo_pending',
+          merchantTransactionId: 'tx_pay_17893581002',
+          appId: 'prj_chave_inicial',
+          appName: 'Chave inicial',
+          providerId: 'nuvex',
+          providerChargeId: '77123912-ab34-45cd-89ef-123456789abc',
+          amount: 12500,
+          currency: 'AOA',
+          method: 'GPO',
+          phoneNumber: '923456789',
+          description: 'Assinatura Mensal Plataforma',
+          status: 'pending',
+          environment: 'live',
+          createdAt: '2026-09-14T03:35:45.000Z',
+        },
+        {
+          id: 'ch_03_gpo_pending',
+          merchantTransactionId: 'tx_pay_17893581003',
+          appId: 'prj_chave_inicial',
+          appName: 'Chave inicial',
+          providerId: 'nuvex',
+          providerChargeId: '88123912-bc45-56de-90fa-234567890bcd',
+          amount: 8000,
+          currency: 'AOA',
+          method: 'GPO',
+          phoneNumber: '931220441',
+          description: 'Créditos de Envio SMS API',
+          status: 'pending',
+          environment: 'live',
+          createdAt: '2026-09-14T03:38:20.000Z',
+        },
+        {
+          id: 'ch_04_gpo_failed',
+          merchantTransactionId: 'tx_pay_17893581004',
+          appId: 'prj_chave_inicial',
+          appName: 'Chave inicial',
+          providerId: 'nuvex',
+          amount: 25000,
+          currency: 'AOA',
+          method: 'GPO',
+          phoneNumber: '912345678',
+          description: 'Renovação de Domínio e Hospedagem',
+          status: 'failed',
+          errorMessage: 'Tempo limite de confirmação excedido no terminal móvel do cliente.',
+          environment: 'live',
+          createdAt: '2026-09-14T02:15:00.000Z',
+          failedAt: '2026-09-14T02:17:00.000Z',
+        },
+        {
+          id: 'ch_05_gpr_expired',
+          merchantTransactionId: 'tx_pay_17893581005',
+          appId: 'prj_chave_inicial',
+          appName: 'Chave inicial',
+          providerId: 'nuvex',
+          amount: 15000,
+          currency: 'AOA',
+          method: 'GPR',
+          description: 'Inscrição em Curso Técnico',
+          status: 'expired',
+          referenceDetails: {
+            entity: '10111',
+            reference: '116 216 540',
+            amount: 15000,
+            expiryDate: '2026-09-13T23:59:59.000Z',
+          },
+          environment: 'live',
+          createdAt: '2026-09-13T10:00:00.000Z',
+        },
+        {
+          id: 'ch_06_gpo_failed',
+          merchantTransactionId: 'tx_pay_17893581006',
+          appId: 'prj_chave_inicial',
+          appName: 'Chave inicial',
+          providerId: 'nuvex',
+          amount: 35000,
+          currency: 'AOA',
+          method: 'GPO',
+          phoneNumber: '945678912',
+          description: 'Aquisição de Licença de Software',
+          status: 'failed',
+          errorMessage: 'Saldo insuficiente ou cartão bloqueado na EMIS.',
+          environment: 'live',
+          createdAt: '2026-09-12T16:20:00.000Z',
+          failedAt: '2026-09-12T16:22:00.000Z',
+        },
+      ];
+
+      // Pedidos de levantamento
+      this.data.withdrawals = [];
 
       // Logs reais de segurança do sistema
       this.data.logs = [
         {
           id: `log_init_01`,
           type: 'api_request',
-          title: 'Sistema de Gateway e Segurança Inicializado',
-          details: `Administrador ${adminEmail} cadastrado com autenticação segura. Painel pronto para operação real.`,
+          title: 'Pay Yetux Gateway Inicializado',
+          details: `Administrador ${adminEmail} autenticado com segurança. Plataforma Pay Yetux operacional.`,
           endpoint: '/api/v1/auth',
           statusCode: 200,
           success: true,
@@ -368,12 +555,114 @@ class MemoryAndFileStore {
     this.persistToDisk();
   }
 
+  // --- Bank Account ---
+  getBankAccount(userId: string): BankAccount {
+    let acc = (this.data.bankAccounts || []).find((b) => b.userId === userId);
+    if (!acc) {
+      acc = {
+        id: `bank_${Date.now()}`,
+        userId,
+        holderName: 'Mauricio Kaleya',
+        bankName: 'Banco Angolano de Investimentos (BAI)',
+        iban: '004000003224707910198',
+        accountNumber: '32247079101',
+        isVerified: true,
+        updatedAt: new Date().toISOString(),
+      };
+      this.saveBankAccount(acc);
+    }
+    return acc;
+  }
+
+  saveBankAccount(account: BankAccount): BankAccount {
+    if (!this.data.bankAccounts) this.data.bankAccounts = [];
+    const idx = this.data.bankAccounts.findIndex((b) => b.id === account.id || b.userId === account.userId);
+    if (idx >= 0) {
+      this.data.bankAccounts[idx] = { ...this.data.bankAccounts[idx], ...account, updatedAt: new Date().toISOString() };
+      account = this.data.bankAccounts[idx];
+    } else {
+      this.data.bankAccounts.push(account);
+    }
+    this.persistToDisk();
+    return account;
+  }
+
+  // --- KYC Documents ---
+  getKycDocuments(userId?: string): KycDocument[] {
+    const list = this.data.kycDocuments || [];
+    if (userId) {
+      return list.filter((d) => d.userId === userId);
+    }
+    return list;
+  }
+
+  saveKycDocument(doc: KycDocument): KycDocument {
+    if (!this.data.kycDocuments) this.data.kycDocuments = [];
+    const idx = this.data.kycDocuments.findIndex((d) => d.id === doc.id);
+    if (idx >= 0) {
+      this.data.kycDocuments[idx] = doc;
+    } else {
+      this.data.kycDocuments.unshift(doc);
+    }
+    this.persistToDisk();
+    return doc;
+  }
+
+  updateKycStatus(id: string, status: 'verified' | 'pending' | 'rejected', notes?: string): KycDocument | undefined {
+    if (!this.data.kycDocuments) return undefined;
+    const doc = this.data.kycDocuments.find((d) => d.id === id);
+    if (doc) {
+      doc.status = status;
+      doc.reviewedAt = new Date().toISOString();
+      if (notes !== undefined) doc.notes = notes;
+      this.persistToDisk();
+    }
+    return doc;
+  }
+
+  // --- Withdrawals ---
+  getWithdrawals(userId?: string): WithdrawalRequest[] {
+    const list = this.data.withdrawals || [];
+    if (userId) {
+      return list.filter((w) => w.userId === userId);
+    }
+    return list;
+  }
+
+  createWithdrawal(withdrawal: WithdrawalRequest): WithdrawalRequest {
+    if (!this.data.withdrawals) this.data.withdrawals = [];
+    this.data.withdrawals.unshift(withdrawal);
+    this.persistToDisk();
+    return withdrawal;
+  }
+
+  updateWithdrawalStatus(id: string, status: 'completed' | 'pending' | 'rejected', adminNotes?: string, receiptReference?: string): WithdrawalRequest | undefined {
+    if (!this.data.withdrawals) return undefined;
+    const req = this.data.withdrawals.find((w) => w.id === id);
+    if (req) {
+      req.status = status;
+      req.processedAt = new Date().toISOString();
+      if (adminNotes) req.adminNotes = adminNotes;
+      if (receiptReference) req.receiptReference = receiptReference;
+      this.persistToDisk();
+    }
+    return req;
+  }
+
+  deleteProvider(id: string): boolean {
+    if (!this.data.providers) return false;
+    const initialLen = this.data.providers.length;
+    this.data.providers = this.data.providers.filter((p) => p.id !== id);
+    this.persistToDisk();
+    return this.data.providers.length < initialLen;
+  }
+
   // --- Stats Calculation ---
   getStats(): GatewayStats {
     const charges = this.data.charges;
     const paidCharges = charges.filter((c) => c.status === 'paid');
     const pendingCharges = charges.filter((c) => c.status === 'pending');
-    const failedCharges = charges.filter((c) => c.status === 'failed' || c.status === 'cancelled');
+    const failedCharges = charges.filter((c) => c.status === 'failed' || c.status === 'cancelled' || c.status === 'expired');
 
     const totalSalesVolume = paidCharges.reduce((acc, curr) => acc + curr.amount, 0);
 
@@ -408,6 +697,37 @@ class MemoryAndFileStore {
       count: val.count,
     }));
 
+    // Hourly volume for today (00:00 to 23:00)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const hourlyMap = new Map<number, { amount: number; count: number }>();
+    for (let h = 0; h < 24; h++) {
+      hourlyMap.set(h, { amount: 0, count: 0 });
+    }
+
+    for (const c of paidCharges) {
+      const chargeDate = new Date(c.paidAt || c.createdAt);
+      if (chargeDate.toISOString().slice(0, 10) === todayStr) {
+        const hour = chargeDate.getHours();
+        const current = hourlyMap.get(hour) || { amount: 0, count: 0 };
+        current.amount += c.amount;
+        current.count += 1;
+        hourlyMap.set(hour, current);
+      }
+    }
+
+    const todayHourlyVolume = Array.from(hourlyMap.entries()).map(([hourNum, val]) => ({
+      hour: `${hourNum.toString().padStart(2, '0')}:00`,
+      amount: val.amount,
+      count: val.count,
+    }));
+
+    // Calculate available balance: paid revenue net of fees minus completed/pending withdrawals
+    const completedOrPendingWithdrawals = (this.data.withdrawals || [])
+      .filter((w) => w.status === 'completed' || w.status === 'pending')
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    const availableBalance = Math.max(0, Math.round(totalSalesVolume * 0.985 - completedOrPendingWithdrawals));
+
     return {
       totalSalesVolume,
       approvedPaymentsCount: paidCharges.length,
@@ -415,11 +735,13 @@ class MemoryAndFileStore {
       failedPaymentsCount: failedCharges.length,
       totalTransactionsCount: totalCount,
       conversionRate: Math.round(conversionRate * 10) / 10,
+      availableBalance,
       volumeByMethod: {
         gpo: gpoVolume,
         gpr: gprVolume,
       },
       dailyVolume,
+      todayHourlyVolume,
     };
   }
 }

@@ -155,6 +155,52 @@ export interface AuditLog {
   appId?: string;
 }
 
+export interface BankAccount {
+  id: string;
+  userId: string;
+  holderName: string;
+  bankName: string;
+  iban: string;
+  accountNumber?: string;
+  isVerified: boolean;
+  updatedAt: string;
+}
+
+export interface KycDocument {
+  id: string;
+  userId: string;
+  userEmail: string;
+  docType: 'identity' | 'address' | 'business';
+  docTypeLabel: string;
+  fileName: string;
+  fileSize: string;
+  fileData?: string;
+  status: 'verified' | 'pending' | 'rejected';
+  submittedAt: string;
+  reviewedAt?: string;
+  notes?: string;
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  amount: number;
+  fee: number;
+  netAmount: number;
+  currency: string; // "AOA"
+  bankAccount: {
+    holderName: string;
+    bankName: string;
+    iban: string;
+  };
+  status: 'pending' | 'completed' | 'rejected';
+  requestedAt: string;
+  processedAt?: string;
+  receiptReference?: string;
+  adminNotes?: string;
+}
+
 export interface GatewayStats {
   totalSalesVolume: number;
   approvedPaymentsCount: number;
@@ -162,12 +208,18 @@ export interface GatewayStats {
   failedPaymentsCount: number;
   totalTransactionsCount: number;
   conversionRate: number;
+  availableBalance?: number;
   volumeByMethod: {
     gpo: number;
     gpr: number;
   };
   dailyVolume: {
     date: string;
+    amount: number;
+    count: number;
+  }[];
+  todayHourlyVolume?: {
+    hour: string;
     amount: number;
     count: number;
   }[];

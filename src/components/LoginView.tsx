@@ -49,12 +49,6 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
     }
   };
 
-  const handleFillAdminCredentials = () => {
-    setEmail('kaleyapt@gmail.com');
-    setPassword('Mauricio.200');
-    setErrorMessage(null);
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-emerald-500 selection:text-white">
       {/* Background Subtle Gradient Grid */}
@@ -67,19 +61,19 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              Gateway Nuvex
+              Pay Yetux
               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
-                Oficial Angola
+                Gateway & API Angola
               </span>
             </h1>
-            <p className="text-xs text-slate-400">Plataforma Intermediária de Pagamentos</p>
+            <p className="text-xs text-slate-400">Plataforma de Pagamentos & Portal de Desenvolvedores</p>
           </div>
         </div>
         <h2 className="mt-6 text-center text-xl font-semibold tracking-tight text-slate-100">
-          Autenticação de Segurança
+          Autenticação Segura
         </h2>
         <p className="mt-1 text-center text-xs text-slate-400">
-          Acesso restrito ao Painel de Administração & Métricas Financeiras
+          Acesso ao Painel Pay Yetux — Super Admin & Portal dos Desenvolvedores
         </p>
       </div>
 
@@ -151,15 +145,11 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
             <div className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs text-slate-400">Ambiente Seguro (HTTPS / TLS)</span>
+                <span className="text-xs text-slate-400">Ambiente Seguro (HTTPS / TLS 1.3)</span>
               </div>
-              <button
-                type="button"
-                onClick={handleFillAdminCredentials}
-                className="text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                Preencher Administrador
-              </button>
+              <span className="text-[11px] text-slate-500 font-mono">
+                Proteção Ativa
+              </span>
             </div>
 
             <div>
@@ -184,28 +174,21 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
             </div>
           </form>
 
-          {/* Helper Credentials Box */}
+          {/* Security & Confidentiality Notice */}
           <div className="mt-6 pt-5 border-t border-slate-800">
             <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800/80">
-              <div className="flex items-center justify-between text-xs text-slate-300 font-medium mb-2">
+              <div className="flex items-center justify-between text-xs text-slate-300 font-medium mb-1.5">
                 <span className="flex items-center gap-1.5 text-slate-200">
-                  <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
-                  Credenciais Oficiais Configuradas:
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Credenciais Protegidas e Encriptadas
                 </span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
-                  ATIVO
+                  CONFIDENCIAL
                 </span>
               </div>
-              <div className="text-xs space-y-1 text-slate-400 font-mono">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">E-mail:</span>
-                  <span className="text-slate-200">kaleyapt@gmail.com</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Palavra-passe:</span>
-                  <span className="text-slate-200">Mauricio.200</span>
-                </div>
-              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                As palavras-passe e segredos de API da Pay Yetux são armazenados com hash criptográfico PBKDF2 e salting dedicado.
+              </p>
             </div>
           </div>
 

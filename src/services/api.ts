@@ -1,4 +1,17 @@
-import { Charge, PaymentLink, Product, ClientApp, ProviderConfig, AuditLog, GatewayStats, AdminUser, AuthResponse } from '../types';
+import { 
+  Charge, 
+  PaymentLink, 
+  Product, 
+  ClientApp, 
+  ProviderConfig, 
+  AuditLog, 
+  GatewayStats, 
+  AdminUser, 
+  AuthResponse,
+  BankAccount,
+  KycDocument,
+  WithdrawalRequest
+} from '../types';
 
 const TOKEN_KEY = 'gateway_admin_token';
 const USER_KEY = 'gateway_admin_user';
@@ -292,6 +305,31 @@ export const api = {
     return data.providers || [];
   },
 
+  createProvider: async (payload: Partial<ProviderConfig>): Promise<ProviderConfig> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/providers', {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao criar provedor de gateway');
+    return data.provider;
+  },
+
+  deleteProvider: async (id: string): Promise<boolean> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/providers/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao remover provedor');
+    return data.success;
+  },
+
   updateProvider: async (id: string, payload: Partial<ProviderConfig>): Promise<ProviderConfig> => {
     const res = await handleResponse(
       await fetch(`/api/v1/providers/${id}`, {
@@ -305,12 +343,131 @@ export const api = {
     return data.provider;
   },
 
-  testProvider: async (id: string): Promise<{ success: boolean; latencyMs: number; message: string }> => {
+  testProvider: async (
+    id: string,
+    override?: Partial<ProviderConfig>
+  ): Promise<{ success: boolean; latencyMs: number; message: string }> => {
     const res = await handleResponse(
-      await fetch(`/api/v1/providers/${id}/test`, { method: 'POST', headers: getHeaders() })
+      await fetch(`/api/v1/providers/${id}/test`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: override ? JSON.stringify(override) : undefined,
+      })
     );
     const data = await res.json();
     return data.result;
+  },
+
+  // Key rotation
+  rotateAppKeys: async (appId: string, keyType: 'live' | 'test' | 'all' = 'all'): Promise<ClientApp> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/apps/${appId}/rotate-keys`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ keyType }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao regenerar chaves');
+    return data.app;
+  },
+
+  // Developer Bank Account
+  getBankAccount: async (): Promise<BankAccount> => {
+    const res = await handleResponse(await fetch('/api/v1/bank-account', { headers: getHeaders() }));
+    const data = await res.json();
+    return data.bankAccount;
+  },
+
+  saveBankAccount: async (payload: Partial<BankAccount>): Promise<BankAccount> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/bank-account', {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao salvar conta bancária');
+    return data.bankAccount;
+  },
+
+  // Developer KYC Documents
+  getKycDocuments: async (): Promise<KycDocument[]> => {
+    const res = await handleResponse(await fetch('/api/v1/kyc', { headers: getHeaders() }));
+    const data = await res.json();
+    return data.documents || [];
+  },
+
+  submitKyc: async (payload: { docType: string; fileName: string; fileSize: string; fileData?: string }): Promise<KycDocument> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/kyc', {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao submeter documento KYC');
+    return data.document;
+  },
+
+  reviewKyc: async (id: string, status: 'verified' | 'rejected' | 'pending', notes?: string): Promise<KycDocument> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/kyc/${id}/review`, {
+        method: 'PATCH',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status, notes }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao rever documento KYC');
+    return data.document;
+  },
+
+  // Developer Withdrawals
+  getWithdrawals: async (): Promise<WithdrawalRequest[]> => {
+    const res = await handleResponse(await fetch('/api/v1/withdrawals', { headers: getHeaders() }));
+    const data = await res.json();
+    return data.withdrawals || [];
+  },
+
+  createWithdrawal: async (amount: number): Promise<WithdrawalRequest> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/withdrawals', {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ amount }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao solicitar levantamento');
+    return data.withdrawal;
+  },
+
+  updateWithdrawal: async (
+    id: string,
+    status: 'completed' | 'pending' | 'rejected',
+    adminNotes?: string,
+    receiptReference?: string
+  ): Promise<WithdrawalRequest> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/withdrawals/${id}`, {
+        method: 'PATCH',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status, adminNotes, receiptReference }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao atualizar levantamento');
+    return data.withdrawal;
+  },
+
+  // Developer Consolidated Summary
+  getDeveloperSummary: async (): Promise<any> => {
+    const res = await handleResponse(await fetch('/api/v1/developer/summary', { headers: getHeaders() }));
+    const data = await res.json();
+    return data.summary;
   },
 
   // Webhooks tester

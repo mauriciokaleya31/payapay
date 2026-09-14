@@ -1,12 +1,11 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { store } from './server/store.js';
 import { providerManager } from './server/providers/manager.js';
 import { dispatchClientWebhook, testWebhookEndpoint } from './server/webhookNotifier.js';
-import { Charge, PaymentLink, Product, ClientApp, PaymentMethodType, AuthSession } from './server/types.js';
+import { Charge, PaymentLink, Product, ClientApp, PaymentMethodType, AuthSession, ProviderConfig } from './server/types.js';
 import {
   verifyPassword,
   checkLoginRateLimit,
@@ -17,9 +16,6 @@ import {
 } from './server/auth.js';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 interface CustomRequest extends Request {
   rawBody?: string;
@@ -35,7 +31,11 @@ try {
   const savedProviders = store.getProviders();
   if (savedProviders && savedProviders.length > 0) {
     for (const p of savedProviders) {
-      providerManager.updateConfig(p.id, p);
+      if (providerManager.getConfig(p.id)) {
+        providerManager.updateConfig(p.id, p);
+      } else {
+        providerManager.addOrUpdateCustomProvider(p);
+      }
     }
   }
 } catch {
@@ -879,6 +879,40 @@ app.delete('/api/v1/apps/:id', requireAdminAuth, (req, res) => {
   }
 });
 
+app.post('/api/v1/apps/:id/rotate-keys', requireAdminAuth, (req, res) => {
+  try {
+    const appItem = store.getAppById(req.params.id);
+    if (!appItem) {
+      return res.status(404).json({ success: false, error: 'Projeto não encontrado' });
+    }
+    const { keyType } = req.body; // 'live' | 'test' | 'all'
+    const randHex = (n = 18) => Math.random().toString(36).substring(2, 2 + n);
+
+    if (keyType === 'live' || keyType === 'all' || !keyType) {
+      appItem.apiKeyLive = `nvx_live_${randHex(18)}`;
+      appItem.secretKeyLive = `gw_sec_live_${randHex(20)}`;
+    }
+    if (keyType === 'test' || keyType === 'all' || !keyType) {
+      appItem.apiKeyTest = `py_test_${randHex(18)}`;
+      appItem.secretKeyTest = `gw_sec_test_${randHex(20)}`;
+    }
+
+    const updated = store.saveApp(appItem);
+    store.addLog({
+      type: 'api_request',
+      title: `Chaves de API Regeneradas para o Projeto ${appItem.name}`,
+      details: `Tipo de chave: ${keyType || 'all'}`,
+      endpoint: `/api/v1/apps/${req.params.id}/rotate-keys`,
+      statusCode: 200,
+      success: true,
+      appId: appItem.id,
+    });
+    res.json({ success: true, app: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ----------------------------------------------------
 // Admin: Providers & Multi-Provider Engine
 // ----------------------------------------------------
@@ -886,6 +920,67 @@ app.get('/api/v1/providers', requireAdminAuth, (_req, res) => {
   try {
     const configs = providerManager.getAllConfigs();
     res.json({ success: true, providers: configs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/providers', requireAdminAuth, (req, res) => {
+  try {
+    const { id, name, description, apiUrl, apiKey, secretKey, webhookSecret, supportedMethods, testMode, isActive } = req.body;
+    if (!name || !apiUrl) {
+      return res.status(400).json({ success: false, error: 'Nome e URL do Gateway são obrigatórios.' });
+    }
+
+    const providerId = id || name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const newConfig: ProviderConfig = {
+      id: providerId,
+      name,
+      description: description || 'Gateway de Pagamentos adicional',
+      isActive: isActive !== false,
+      isDefault: false,
+      apiUrl,
+      apiKey: apiKey || '',
+      secretKey: secretKey || '',
+      webhookSecret: webhookSecret || '',
+      supportedMethods: supportedMethods || ['GPO', 'GPR'],
+      testMode: testMode || false,
+    };
+
+    providerManager.addOrUpdateCustomProvider(newConfig);
+    store.saveProvider(newConfig);
+    store.addLog({
+      type: 'provider_config',
+      title: `Novo Gateway Cadastrado: ${newConfig.name}`,
+      details: `Endpoint: ${newConfig.apiUrl} | Métodos: ${newConfig.supportedMethods.join(', ')}`,
+      endpoint: '/api/v1/providers',
+      statusCode: 201,
+      success: true,
+    });
+
+    res.status(201).json({ success: true, provider: newConfig });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/v1/providers/:id', requireAdminAuth, (req, res) => {
+  try {
+    const providerId = req.params.id;
+    if (providerId === 'nuvex') {
+      return res.status(400).json({ success: false, error: 'O gateway Nuvex é o conector base e não pode ser excluído.' });
+    }
+    providerManager.deleteProvider(providerId);
+    store.deleteProvider(providerId);
+    store.addLog({
+      type: 'provider_config',
+      title: `Gateway Removido: ${providerId}`,
+      details: 'Gateway desinstalado pelo administrador.',
+      endpoint: `/api/v1/providers/${providerId}`,
+      statusCode: 200,
+      success: true,
+    });
+    res.json({ success: true, message: 'Gateway removido com sucesso' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -911,7 +1006,11 @@ app.put('/api/v1/providers/:id', requireAdminAuth, (req, res) => {
 
 app.post('/api/v1/providers/:id/test', requireAdminAuth, async (req, res) => {
   try {
-    const result = await providerManager.testProviderConnection(req.params.id);
+    const result = await providerManager.testProviderConnection(req.params.id, req.body);
+    const updatedConfig = providerManager.getConfig(req.params.id);
+    if (updatedConfig) {
+      store.saveProvider(updatedConfig);
+    }
     store.addLog({
       type: 'provider_sync',
       title: `Teste de Conexão com Provedor (${req.params.id})`,
@@ -921,6 +1020,310 @@ app.post('/api/v1/providers/:id/test', requireAdminAuth, async (req, res) => {
       success: result.success,
     });
     res.json({ success: result.success, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Developer Portal: Bank Account (Definições)
+// ----------------------------------------------------
+app.get('/api/v1/bank-account', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const userId = session?.userId || 'usr_admin_mauricio';
+    const account = store.getBankAccount(userId);
+    res.json({ success: true, bankAccount: account });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/bank-account', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const userId = session?.userId || 'usr_admin_mauricio';
+    const { holderName, bankName, iban, accountNumber } = req.body;
+
+    if (!holderName || !bankName || !iban) {
+      return res.status(400).json({ success: false, error: 'Titular, Nome do Banco e IBAN são obrigatórios.' });
+    }
+
+    const cleanIban = iban.replace(/\s+/g, '');
+    const saved = store.saveBankAccount({
+      id: `bank_${Date.now()}`,
+      userId,
+      holderName,
+      bankName,
+      iban: cleanIban,
+      accountNumber: accountNumber || cleanIban.substring(4, 15),
+      isVerified: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    store.addLog({
+      type: 'api_request',
+      title: 'Conta Bancária de Liquidação Atualizada',
+      details: `${holderName} | ${bankName} (${cleanIban})`,
+      endpoint: '/api/v1/bank-account',
+      statusCode: 200,
+      success: true,
+    });
+
+    res.json({ success: true, bankAccount: saved });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Developer Portal: KYC Verification
+// ----------------------------------------------------
+app.get('/api/v1/kyc', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const userId = session?.userId;
+    const documents = store.getKycDocuments(userId);
+    res.json({ success: true, documents });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/kyc', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const { docType, fileName, fileSize, fileData } = req.body;
+
+    if (!fileName) {
+      return res.status(400).json({ success: false, error: 'Ficheiro de identificação é obrigatório.' });
+    }
+
+    const docLabels: Record<string, string> = {
+      identity: 'Documento de identidade (BI ou passaporte)',
+      address: 'Comprovativo de morada ou residência',
+      business: 'Certidão Comercial ou Registo de Empresa',
+    };
+
+    const newDoc: any = {
+      id: `kyc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: session?.userId || 'usr_admin_mauricio',
+      userEmail: session?.userEmail || 'kaleyapt@gmail.com',
+      docType: docType || 'identity',
+      docTypeLabel: docLabels[docType] || 'Documento de identificação',
+      fileName,
+      fileSize: fileSize || '1.5 MB',
+      fileData: fileData || undefined,
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+      notes: 'Submissão enviada para análise de conformidade KYC.',
+    };
+
+    store.saveKycDocument(newDoc);
+    store.addLog({
+      type: 'api_request',
+      title: `Submissão KYC Enviada: ${fileName}`,
+      details: `Tipo: ${newDoc.docTypeLabel} | Utilizador: ${newDoc.userEmail}`,
+      endpoint: '/api/v1/kyc',
+      statusCode: 201,
+      success: true,
+    });
+
+    res.status(201).json({ success: true, document: newDoc });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/v1/kyc/:id/review', requireAdminAuth, (req: Request, res: Response) => {
+  try {
+    const { status, notes } = req.body;
+    if (!status || !['verified', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Estado KYC inválido (verified, rejected, pending)' });
+    }
+
+    const updated = store.updateKycStatus(req.params.id, status, notes);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Documento KYC não encontrado' });
+    }
+
+    store.addLog({
+      type: 'api_request',
+      title: `Documento KYC ${status === 'verified' ? 'Aprovado' : 'Rejeitado'}`,
+      details: `Documento ID: ${req.params.id} | Notas: ${notes || 'Sem observações adicionais'}`,
+      endpoint: `/api/v1/kyc/${req.params.id}/review`,
+      statusCode: 200,
+      success: true,
+    });
+
+    res.json({ success: true, document: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Developer Portal: Levantamentos (Withdrawals)
+// ----------------------------------------------------
+app.get('/api/v1/withdrawals', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const withdrawals = store.getWithdrawals(session?.role === 'super_admin' ? undefined : session?.userId);
+    res.json({ success: true, withdrawals });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/withdrawals', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const userId = session?.userId || 'usr_admin_mauricio';
+    const userEmail = session?.userEmail || 'kaleyapt@gmail.com';
+    const { amount } = req.body;
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount < 1000) {
+      return res.status(400).json({ success: false, error: 'O valor mínimo para levantamento é de 1.000,00 Kz.' });
+    }
+
+    const stats = store.getStats();
+    const available = stats.availableBalance || 0;
+    if (numAmount > available && available > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Saldo disponível insuficiente (${available.toLocaleString('pt-AO')} Kz).`,
+      });
+    }
+
+    const bank = store.getBankAccount(userId);
+    if (!bank || !bank.iban) {
+      return res.status(400).json({
+        success: false,
+        error: 'É necessário configurar uma conta bancária de liquidação nas Definições antes de solicitar levantamentos.',
+      });
+    }
+
+    const fee = Math.round(numAmount * 0.01); // 1% fee de processamento bancário
+    const netAmount = numAmount - fee;
+
+    const newWithdrawal: any = {
+      id: `wth_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId,
+      userEmail,
+      amount: numAmount,
+      fee,
+      netAmount,
+      currency: 'AOA',
+      bankAccount: {
+        holderName: bank.holderName,
+        bankName: bank.bankName,
+        iban: bank.iban,
+      },
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+    };
+
+    store.createWithdrawal(newWithdrawal);
+    store.addLog({
+      type: 'api_request',
+      title: `Pedido de Levantamento Criado: ${numAmount.toLocaleString('pt-AO')} Kz`,
+      details: `Conta BAI: ${bank.iban} | Titular: ${bank.holderName}`,
+      endpoint: '/api/v1/withdrawals',
+      statusCode: 201,
+      success: true,
+    });
+
+    res.status(201).json({ success: true, withdrawal: newWithdrawal });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/v1/withdrawals/:id', requireAdminAuth, (req: Request, res: Response) => {
+  try {
+    const { status, adminNotes, receiptReference } = req.body;
+    if (!status || !['completed', 'pending', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Estado de levantamento inválido.' });
+    }
+
+    const updated = store.updateWithdrawalStatus(req.params.id, status, adminNotes, receiptReference);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Pedido de levantamento não encontrado.' });
+    }
+
+    store.addLog({
+      type: 'api_request',
+      title: `Levantamento ${status === 'completed' ? 'Liquidado com Sucesso' : status}`,
+      details: `Ref: ${receiptReference || 'N/A'} | Notas: ${adminNotes || 'Processamento bancário concluído'}`,
+      endpoint: `/api/v1/withdrawals/${req.params.id}`,
+      statusCode: 200,
+      success: true,
+    });
+
+    res.json({ success: true, withdrawal: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Developer Portal: Consolidated Summary & Metrics
+// ----------------------------------------------------
+app.get('/api/v1/developer/summary', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const session = validateSessionToken(req.headers['authorization'] || '');
+    const userId = session?.userId || 'usr_admin_mauricio';
+
+    const stats = store.getStats();
+    const bankAccount = store.getBankAccount(userId);
+    const kycDocs = store.getKycDocuments(userId);
+    const apps = store.getApps();
+    const charges = store.getCharges();
+
+    // Map charges to Developer view (Bruto, Taxa 1.5%, Líquido, Estado, Data)
+    const formattedTransactions = charges.slice(0, 10).map((c) => {
+      const feeRate = 0.015;
+      const fee = Math.round(c.amount * feeRate);
+      const net = c.amount - fee;
+      return {
+        id: c.id,
+        merchantTransactionId: c.merchantTransactionId,
+        providerChargeId: c.providerChargeId,
+        method: c.method,
+        appName: c.appName || 'Chave inicial',
+        grossAmount: c.amount,
+        feeAmount: fee,
+        netAmount: net,
+        currency: c.currency,
+        status: c.status,
+        description: c.description,
+        createdAt: c.createdAt,
+        referenceDetails: c.referenceDetails,
+      };
+    });
+
+    const isKycVerified = kycDocs.some((d) => d.status === 'verified');
+
+    res.json({
+      success: true,
+      summary: {
+        totalSalesVolume: stats.totalSalesVolume,
+        availableBalance: stats.availableBalance || 0,
+        approvedPaymentsCount: stats.approvedPaymentsCount,
+        pendingPaymentsCount: stats.pendingPaymentsCount,
+        failedPaymentsCount: stats.failedPaymentsCount,
+        totalTransactionsCount: stats.totalTransactionsCount,
+        conversionRate: stats.conversionRate,
+        todayHourlyVolume: stats.todayHourlyVolume || [],
+        dailyVolume: stats.dailyVolume || [],
+        recentTransactions: formattedTransactions,
+        bankAccount,
+        kycStatus: isKycVerified ? 'verified' : kycDocs.length > 0 ? 'pending' : 'unsubmitted',
+        kycDocuments: kycDocs,
+        projects: apps,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

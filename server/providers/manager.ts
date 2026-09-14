@@ -1,5 +1,6 @@
 import { PaymentProvider } from './base.js';
 import { NuvexProvider } from './nuvex.js';
+import { GenericGatewayProvider } from './generic.js';
 import { ProviderConfig, PaymentMethodType } from '../types.js';
 
 export class ProviderManager {
@@ -10,6 +11,9 @@ export class ProviderManager {
     // Register initial Nuvex provider
     const nuvex = new NuvexProvider();
     this.registerProvider(nuvex);
+
+    // Register generic provider for EMIS
+    this.registerProvider(new GenericGatewayProvider('emis', 'EMIS Direto'));
 
     // Set default initial config for Nuvex
     const hasLiveEnvKey = Boolean(
@@ -102,11 +106,14 @@ export class ProviderManager {
     return { provider: nuvexProvider, config: nuvexConfig };
   }
 
-  async testProviderConnection(providerId: string): Promise<{ success: boolean; latencyMs: number; message: string }> {
+  async testProviderConnection(
+    providerId: string,
+    overrideConfig?: Partial<ProviderConfig>
+  ): Promise<{ success: boolean; latencyMs: number; message: string }> {
     const provider = this.providers.get(providerId);
-    const config = this.configs.get(providerId);
+    const currentConfig = this.configs.get(providerId);
 
-    if (!provider || !config) {
+    if (!provider || !currentConfig) {
       return {
         success: false,
         latencyMs: 0,
@@ -114,15 +121,36 @@ export class ProviderManager {
       };
     }
 
-    const result = await provider.testConnection(config);
-    config.lastConnectionTest = {
+    const effectiveConfig: ProviderConfig = {
+      ...currentConfig,
+      ...(overrideConfig || {}),
+    };
+
+    const result = await provider.testConnection(effectiveConfig);
+    effectiveConfig.lastConnectionTest = {
       timestamp: new Date().toISOString(),
       success: result.success,
       latencyMs: result.latencyMs,
       message: result.message,
     };
-    this.configs.set(providerId, config);
+    this.configs.set(providerId, effectiveConfig);
     return result;
+  }
+
+  addOrUpdateCustomProvider(config: ProviderConfig): ProviderConfig {
+    this.configs.set(config.id, config);
+    if (!this.providers.has(config.id)) {
+      this.providers.set(config.id, new GenericGatewayProvider(config.id, config.name));
+    }
+    return config;
+  }
+
+  deleteProvider(providerId: string): boolean {
+    if (providerId === 'nuvex') {
+      throw new Error('O gateway Nuvex é a infraestrutura padrão do sistema e não pode ser apagado.');
+    }
+    this.providers.delete(providerId);
+    return this.configs.delete(providerId);
   }
 }
 

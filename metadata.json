@@ -1,6 +1,7 @@
 {
-  "name": "Gateway de Pagamentos",
-  "description": "Plataforma profissional de gateway de pagamentos multi-provedor com integração Nuvex (Multicaixa Express e Referência), links de pagamento, mini-loja e webhooks.",
+  "name": "Pay Yetux - Gateway de Pagamentos",
+  "description": "Plataforma profissional de pagamentos multi-provedor com integração Nuvex (Multicaixa Express e Referência Bancária GPR), portal de desenvolvedores, API e webhooks.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
+

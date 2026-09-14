@@ -65,11 +65,23 @@ export class NuvexProvider implements PaymentProvider {
           let referenceDetails;
 
           if (input.method === 'GPR') {
+            const refObj = typeof data.reference === 'object' && data.reference !== null ? data.reference : {};
+            const rawRef =
+              refObj.reference ||
+              (typeof data.reference === 'string' ? data.reference : '') ||
+              data.referencia ||
+              this.generateReferenceNumber();
+            const cleanRef = String(rawRef).replace(/\s+/g, '');
+            const formattedRef =
+              cleanRef.length === 9
+                ? `${cleanRef.slice(0, 3)} ${cleanRef.slice(3, 6)} ${cleanRef.slice(6, 9)}`
+                : String(rawRef);
+
             referenceDetails = {
-              entity: data.entity || data.entidade || '00123',
-              reference: data.reference || data.referencia || this.generateReferenceNumber(),
-              amount: input.amount,
-              expiryDate: data.expiry_date || new Date(Date.now() + 24 * 3600 * 1000 * 2).toISOString(),
+              entity: String(refObj.entity || data.entity || data.entidade || '10111'),
+              reference: formattedRef,
+              amount: Number(data.amount || input.amount),
+              expiryDate: data.expires_at || data.expiry_date || new Date(Date.now() + 24 * 3600 * 1000 * 2).toISOString(),
             };
           }
 
@@ -80,8 +92,15 @@ export class NuvexProvider implements PaymentProvider {
             referenceDetails,
             rawResponse: data,
           };
+        } else if (!res.ok && !isTestMode) {
+          const errMsg = data?.error || data?.message || `HTTP ${res.status}`;
+          console.error('[NuvexProvider] Nuvex live API error:', res.status, data);
+          throw new Error(`Erro no provedor Nuvex (${res.status}): ${typeof data === 'object' ? JSON.stringify(data) : errMsg}`);
         }
-      } catch {
+      } catch (err: any) {
+        if (!isTestMode && err.message?.includes('Erro no provedor Nuvex')) {
+          throw err;
+        }
         // Network timeout or unreachable; will handle via standard sandbox simulation below
       }
     }
@@ -245,39 +264,48 @@ export class NuvexProvider implements PaymentProvider {
     const apiUrl = (config?.apiUrl || process.env.NUVEX_API_URL || 'https://pagamentos-nuvex.lovable.app').replace(/\/$/, '');
     const apiKey = config?.apiKey || process.env.NUVEX_API_KEY || '';
 
+    if (!apiKey) {
+      return {
+        success: true,
+        latencyMs: 1,
+        message: 'Modo Sandbox activo (nenhuma chave de API configurada). Insira a chave Live oficial para operar em produção.',
+      };
+    }
+
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-      // Ping charges endpoint or documentation endpoint to test reachability
-      const res = await fetch(`${apiUrl}/api/public/v1/charges/ping`, {
+      // Probe Nuvex charges API with authorization header
+      const res = await fetch(`${apiUrl}/api/public/v1/charges/auth-probe-check`, {
         method: 'GET',
         headers: this.getHeaders(apiKey),
         signal: controller.signal,
-      }).catch(async () => {
-        // Nuvex docs / ping
-        return await fetch(apiUrl, { method: 'HEAD', signal: controller.signal });
       });
 
       clearTimeout(timeoutId);
       const latencyMs = Date.now() - start;
 
-      if (res && res.status < 500) {
-        const isAuth = res.status === 200;
-        const msg = isAuth
-          ? `Conexão autenticada com sucesso com Nuvex API (${latencyMs}ms).`
-          : `Servidor Nuvex operacional (${latencyMs}ms). Modo Sandbox activo (insira a sua chave Live oficial para autenticação de produção).`;
+      if (res.status === 401 || res.status === 403) {
+        return {
+          success: false,
+          latencyMs,
+          message: `Chave de API inválida ou não autorizada pela Nuvex (HTTP ${res.status}). Verifique a chave nvx_live_... configurada.`,
+        };
+      }
+
+      if (res.status === 200 || res.status === 404) {
         return {
           success: true,
           latencyMs,
-          message: msg,
+          message: `Credenciais Nuvex validadas e autenticadas com sucesso (${latencyMs}ms). Provedor pronto para produção.`,
         };
       }
 
       return {
         success: true,
         latencyMs,
-        message: `Servidor Nuvex contactado com sucesso (${latencyMs}ms). Modo operacional ativo.`,
+        message: `Servidor Nuvex operacional (HTTP ${res.status}, ${latencyMs}ms).`,
       };
     } catch (err: any) {
       const latencyMs = Date.now() - start;

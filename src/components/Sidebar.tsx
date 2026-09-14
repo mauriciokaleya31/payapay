@@ -14,7 +14,8 @@ import {
   CheckCircle,
   ExternalLink,
   ChevronRight,
-  Server
+  Server,
+  Terminal
 } from 'lucide-react';
 import { AdminUser, ProviderConfig } from '../types';
 
@@ -47,10 +48,17 @@ export function Sidebar({
 
   const navigationItems = [
     {
+      id: 'developer_portal',
+      label: 'Portal Dev & Empreendedor',
+      icon: Terminal,
+      description: 'Painel completo da API & Levantamentos',
+      isFeatured: true,
+    },
+    {
       id: 'dashboard',
-      label: 'Visão Geral',
+      label: 'Visão Geral (Admin)',
       icon: LayoutDashboard,
-      description: 'Métricas e volume financeiro',
+      description: 'Métricas e volume financeiro global',
     },
     {
       id: 'transactions',
