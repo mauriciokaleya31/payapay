@@ -1,0 +1,981 @@
+import express, { Request, Response } from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { createServer as createViteServer } from 'vite';
+import { store } from './server/store.js';
+import { providerManager } from './server/providers/manager.js';
+import { dispatchClientWebhook, testWebhookEndpoint } from './server/webhookNotifier.js';
+import { Charge, PaymentLink, Product, ClientApp, PaymentMethodType, AuthSession } from './server/types.js';
+import {
+  verifyPassword,
+  checkLoginRateLimit,
+  recordFailedLogin,
+  resetLoginAttempts,
+  createSession,
+  validateSessionToken,
+} from './server/auth.js';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+interface CustomRequest extends Request {
+  rawBody?: string;
+  clientApp?: ClientApp;
+  adminSession?: AuthSession;
+}
+
+const app = express();
+const PORT = 3000;
+
+// Restore any persisted provider configs from database
+try {
+  const savedProviders = store.getProviders();
+  if (savedProviders && savedProviders.length > 0) {
+    for (const p of savedProviders) {
+      providerManager.updateConfig(p.id, p);
+    }
+  }
+} catch {
+  // Safe initialization
+}
+
+// Middleware to capture rawBody for HMAC verification while parsing JSON
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8');
+    },
+  })
+);
+app.use(express.urlencoded({ extended: true }));
+
+// ----------------------------------------------------
+// Security Middleware: Require Admin Authentication
+// ----------------------------------------------------
+function requireAdminAuth(req: CustomRequest, res: Response, next: () => void) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    return res.status(401).json({
+      success: false,
+      error: 'Acesso restrito: autenticação de administrador obrigatória',
+    });
+  }
+
+  const session = validateSessionToken(authHeader);
+  if (!session) {
+    return res.status(401).json({
+      success: false,
+      error: 'Sessão expirada ou token de acesso inválido. Por favor, inicie sessão novamente.',
+    });
+  }
+
+  req.adminSession = session;
+  next();
+}
+
+// ----------------------------------------------------
+// Authentication helper for Client API routes
+// ----------------------------------------------------
+function authenticateClient(req: CustomRequest, res: Response, next: () => void) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+    // If not provided, continue if it's an internal / pay-link request, or return 401
+    return next();
+  }
+
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const foundApp = store.getAppByApiKey(token);
+  if (foundApp) {
+    req.clientApp = foundApp;
+  }
+  next();
+}
+
+// ----------------------------------------------------
+// Authentication Endpoints (Admin Login, Me, Logout)
+// ----------------------------------------------------
+app.post('/api/v1/auth/login', (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'E-mail e palavra-passe são obrigatórios.',
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check rate limit by email & IP
+    const rateCheck = checkLoginRateLimit(`${cleanEmail}_${clientIp}`);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: `Demasiadas tentativas incorretas. Conta temporariamente bloqueada por segurança. Tente novamente em ${rateCheck.waitSeconds} segundos.`,
+      });
+    }
+
+    const user = store.getUserByEmail(cleanEmail);
+    if (!user || user.status !== 'active') {
+      recordFailedLogin(`${cleanEmail}_${clientIp}`);
+      store.addLog({
+        type: 'system_error',
+        title: 'Tentativa de Login Falhada (Utilizador inexistente)',
+        details: `E-mail tentado: ${cleanEmail} | IP: ${clientIp}`,
+        endpoint: '/api/v1/auth/login',
+        statusCode: 401,
+        success: false,
+      });
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciais de acesso incorretas.',
+      });
+    }
+
+    const isValid = verifyPassword(password, user.passwordHash, user.passwordSalt);
+    if (!isValid) {
+      recordFailedLogin(`${cleanEmail}_${clientIp}`);
+      store.addLog({
+        type: 'system_error',
+        title: 'Tentativa de Login Falhada (Palavra-passe errada)',
+        details: `E-mail: ${cleanEmail} | IP: ${clientIp}`,
+        endpoint: '/api/v1/auth/login',
+        statusCode: 401,
+        success: false,
+      });
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciais de acesso incorretas.',
+      });
+    }
+
+    // Success: reset failed attempts
+    resetLoginAttempts(`${cleanEmail}_${clientIp}`);
+
+    // Update user login stats
+    user.lastLoginAt = new Date().toISOString();
+    user.lastLoginIp = clientIp;
+    store.saveUser(user);
+
+    // Create session
+    const userAgent = req.headers['user-agent'];
+    const session = createSession(user, clientIp, userAgent);
+
+    store.addLog({
+      type: 'api_request',
+      title: `Login com Sucesso: ${user.email} (${user.role})`,
+      details: `Sessão iniciada via IP ${clientIp}. Acesso concedido ao Painel Administrativo.`,
+      endpoint: '/api/v1/auth/login',
+      statusCode: 200,
+      success: true,
+    });
+
+    res.json({
+      success: true,
+      token: session.token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        lastLoginAt: user.lastLoginAt,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/v1/auth/me', (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) {
+      return res.status(401).json({ success: false, error: 'Não autenticado' });
+    }
+
+    const session = validateSessionToken(authHeader);
+    if (!session) {
+      return res.status(401).json({ success: false, error: 'Sessão expirada ou inválida' });
+    }
+
+    const user = store.getUserById(session.userId);
+    res.json({
+      success: true,
+      user: {
+        id: session.userId,
+        email: session.userEmail,
+        name: session.userName,
+        role: session.role,
+        lastLoginAt: user?.lastLoginAt,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/auth/logout', (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+      store.deleteSession(cleanToken);
+    }
+    res.json({ success: true, message: 'Sessão terminada com sucesso' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Health Check
+// ----------------------------------------------------
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    service: 'Gateway de Pagamentos Multi-Provedor',
+    version: '1.0.0',
+    primaryProvider: 'Nuvex Pagamentos (GPO / GPR)',
+  });
+});
+
+// ----------------------------------------------------
+// Dashboard Stats (Protected)
+// ----------------------------------------------------
+app.get('/api/v1/stats', requireAdminAuth, (_req, res) => {
+  try {
+    const stats = store.getStats();
+    res.json({ success: true, stats });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Charges / Transactions
+// ----------------------------------------------------
+// List charges with optional filters (Protected)
+app.get('/api/v1/charges', requireAdminAuth, (req, res) => {
+  try {
+    let list = store.getCharges();
+    const { status, method, appId, search } = req.query;
+
+    if (status && status !== 'all') {
+      list = list.filter((c) => c.status === status);
+    }
+    if (method && method !== 'all') {
+      list = list.filter((c) => c.method === method);
+    }
+    if (appId && appId !== 'all') {
+      list = list.filter((c) => c.appId === appId);
+    }
+    if (search && typeof search === 'string') {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.id.toLowerCase().includes(q) ||
+          c.merchantTransactionId.toLowerCase().includes(q) ||
+          (c.customerName && c.customerName.toLowerCase().includes(q)) ||
+          (c.customerEmail && c.customerEmail.toLowerCase().includes(q)) ||
+          (c.phoneNumber && c.phoneNumber.includes(q)) ||
+          (c.description && c.description.toLowerCase().includes(q))
+      );
+    }
+
+    res.json({ success: true, count: list.length, charges: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get charge by ID or merchant transaction ID
+app.get('/api/v1/charges/:id', async (req, res) => {
+  try {
+    const charge = store.getChargeById(req.params.id);
+    if (!charge) {
+      return res.status(404).json({ success: false, error: 'Transação não encontrada' });
+    }
+    res.json({ success: true, charge });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create a new charge (Core Gateway API: works for Client Apps and Hosted Checkout)
+app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: Response) => {
+  try {
+    const {
+      amount,
+      method,
+      phone_number,
+      phoneNumber,
+      merchant_transaction_id,
+      merchantTransactionId,
+      description,
+      customer_name,
+      customerName,
+      customer_email,
+      customerEmail,
+      payment_link_id,
+      paymentLinkId,
+      product_id,
+      productId,
+    } = req.body;
+
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Montante inválido (amount deve ser maior que 0)',
+      });
+    }
+
+    const payMethod: PaymentMethodType = method === 'GPR' ? 'GPR' : 'GPO';
+    const phone = (phone_number || phoneNumber || '').trim();
+
+    if (payMethod === 'GPO' && !phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'Número de telemóvel é obrigatório para pagamentos via Multicaixa Express (GPO)',
+      });
+    }
+
+    const txId =
+      merchant_transaction_id ||
+      merchantTransactionId ||
+      `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const appInfo = req.clientApp || (paymentLinkId ? store.getApps()[0] : undefined);
+
+    // Resolve provider for the requested method (Nuvex by default)
+    const { provider, config } = providerManager.resolveProviderForMethod(payMethod);
+
+    // Invoke provider implementation
+    const providerResult = await provider.createCharge(
+      {
+        amount: numAmount,
+        method: payMethod,
+        phoneNumber: phone,
+        merchantTransactionId: txId,
+        description: description || 'Pagamento Gateway',
+        customerName: customer_name || customerName,
+        customerEmail: customer_email || customerEmail,
+      },
+      config
+    );
+
+    const newCharge: Charge = {
+      id: `ch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      merchantTransactionId: txId,
+      appId: appInfo?.id,
+      appName: appInfo?.name || 'Gateway Checkout',
+      providerId: provider.id,
+      providerChargeId: providerResult.providerChargeId,
+      amount: numAmount,
+      currency: 'AOA',
+      method: payMethod,
+      phoneNumber: phone || undefined,
+      description: description || 'Pagamento via Gateway',
+      customerName: customer_name || customerName,
+      customerEmail: customer_email || customerEmail,
+      status: providerResult.status,
+      paymentLinkId: payment_link_id || paymentLinkId,
+      productId: product_id || productId,
+      referenceDetails: providerResult.referenceDetails,
+      environment: appInfo?.apiKeyTest?.includes(req.headers['authorization'] || '') ? 'test' : 'live',
+      createdAt: new Date().toISOString(),
+      providerRawResponse: providerResult.rawResponse,
+    };
+
+    store.saveCharge(newCharge);
+
+    // If charge linked to a payment link, update link stats
+    if (newCharge.paymentLinkId) {
+      const link = store.getLinkById(newCharge.paymentLinkId);
+      if (link) {
+        link.totalViews += 1;
+        store.saveLink(link);
+      }
+    }
+
+    store.addLog({
+      type: 'api_request',
+      title: `Cobrança Criada: ${newCharge.amount} Kz (${newCharge.method})`,
+      details: `Provedor: ${provider.name} | MerchantTx: ${newCharge.merchantTransactionId}`,
+      endpoint: '/api/v1/charges',
+      statusCode: 201,
+      success: true,
+      chargeId: newCharge.id,
+      appId: newCharge.appId,
+      payload: { amount: newCharge.amount, method: newCharge.method },
+    });
+
+    res.status(201).json({
+      success: true,
+      charge: newCharge,
+      message:
+        payMethod === 'GPO'
+          ? 'Notificação Multicaixa Express emitida para o telemóvel do cliente'
+          : 'Referência de pagamento bancária gerada com sucesso',
+    });
+  } catch (err: any) {
+    store.addLog({
+      type: 'system_error',
+      title: 'Erro na criação de cobrança',
+      details: err.message,
+      endpoint: '/api/v1/charges',
+      statusCode: 500,
+      success: false,
+    });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Force sync / fallback query from provider (Protected)
+app.post('/api/v1/charges/:id/sync', requireAdminAuth, async (req, res) => {
+  try {
+    const charge = store.getChargeById(req.params.id);
+    if (!charge) {
+      return res.status(404).json({ success: false, error: 'Cobrança não encontrada' });
+    }
+
+    const provider = providerManager.getProvider(charge.providerId);
+    const config = providerManager.getConfig(charge.providerId);
+
+    if (provider) {
+      const queryId = charge.providerChargeId || charge.merchantTransactionId;
+      const statusResult = await provider.checkStatus(queryId, config);
+
+      if (statusResult.status !== charge.status) {
+        charge.status = statusResult.status;
+        if (statusResult.status === 'paid' && !charge.paidAt) {
+          charge.paidAt = statusResult.paidAt || new Date().toISOString();
+        }
+        store.saveCharge(charge);
+
+        // Notify client application if registered
+        if (charge.appId) {
+          const app = store.getAppById(charge.appId);
+          if (app) {
+            dispatchClientWebhook(charge, app, `charge.${charge.status}` as any);
+          }
+        }
+      }
+    }
+
+    res.json({ success: true, charge });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Simulate payment approval (useful for testing Multicaixa Express push confirmation in the checkout)
+app.post('/api/v1/charges/:id/simulate-pay', async (req, res) => {
+  try {
+    const charge = store.getChargeById(req.params.id);
+    if (!charge) {
+      return res.status(404).json({ success: false, error: 'Cobrança não encontrada' });
+    }
+
+    charge.status = 'paid';
+    charge.paidAt = new Date().toISOString();
+    store.saveCharge(charge);
+
+    // Update payment link & product sales if linked
+    if (charge.paymentLinkId) {
+      const link = store.getLinkById(charge.paymentLinkId);
+      if (link) {
+        link.totalSalesCount += 1;
+        link.totalSalesAmount += charge.amount;
+        store.saveLink(link);
+      }
+    }
+
+    if (charge.productId) {
+      const prod = store.getProductById(charge.productId);
+      if (prod) {
+        prod.salesCount += 1;
+        if (prod.stock && prod.stock > 0) prod.stock -= 1;
+        store.saveProduct(prod);
+      }
+    }
+
+    // Dispatch webhook to client app
+    if (charge.appId) {
+      const clientApp = store.getAppById(charge.appId);
+      if (clientApp) {
+        dispatchClientWebhook(charge, clientApp, 'charge.paid');
+      }
+    }
+
+    store.addLog({
+      type: 'webhook_received',
+      title: `Pagamento Aprovado: ${charge.amount} Kz (${charge.method})`,
+      details: `Transação ${charge.merchantTransactionId} marcada como paga.`,
+      endpoint: `/api/v1/charges/${charge.id}/simulate-pay`,
+      statusCode: 200,
+      success: true,
+      chargeId: charge.id,
+      appId: charge.appId,
+    });
+
+    res.json({
+      success: true,
+      message: 'Pagamento confirmado e processado com sucesso.',
+      charge,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Inbound Nuvex Webhook Callback
+// ----------------------------------------------------
+/**
+ * Header recebido:
+ * x-nuvex-signature: t=<timestamp>,v1=<hmac_sha256_hex>
+ * Valida o HMAC-SHA256 de `${t}.${rawBody}` com o NUVEX_WEBHOOK_SECRET, em tempo constante.
+ * Rejeita com 401 se falhar.
+ * Marca como pago quando status = "paid" (handler idempotente) e responde 200.
+ */
+app.post('/api/v1/webhooks/nuvex', async (req: CustomRequest, res: Response) => {
+  const signatureHeader = req.headers['x-nuvex-signature'] as string | undefined;
+  const rawBody = req.rawBody || JSON.stringify(req.body);
+  const nuvexConfig = providerManager.getConfig('nuvex');
+  const webhookSecret = nuvexConfig?.webhookSecret || process.env.NUVEX_WEBHOOK_SECRET || 'whsec_demo_webhook_signature';
+
+  const nuvexProvider = providerManager.getProvider('nuvex');
+
+  // Verify HMAC signature in constant time
+  const isValid = nuvexProvider?.verifyWebhookSignature(signatureHeader, rawBody, webhookSecret);
+
+  if (!isValid && process.env.NODE_ENV === 'production') {
+    store.addLog({
+      type: 'webhook_received',
+      title: 'Callback Nuvex Rejeitado: Assinatura Inválida',
+      details: `Assinatura x-nuvex-signature não confere com NUVEX_WEBHOOK_SECRET`,
+      endpoint: '/api/v1/webhooks/nuvex',
+      statusCode: 401,
+      success: false,
+    });
+    return res.status(401).json({ error: 'Assinatura HMAC inválida' });
+  }
+
+  const payload = req.body;
+  const chargeIdentifier = payload.id || payload.charge_id || payload.merchant_transaction_id;
+  const status = payload.status; // "paid", "failed", etc.
+
+  const existingCharge = chargeIdentifier ? store.getChargeById(chargeIdentifier) : undefined;
+
+  store.addLog({
+    type: 'webhook_received',
+    title: `Callback Nuvex: status="${status}" (${payload.method || 'GPO/GPR'})`,
+    details: `Transação: ${chargeIdentifier} | Assinatura HMAC: ${isValid ? 'Válida' : 'Bypass modo dev'}`,
+    endpoint: '/api/v1/webhooks/nuvex',
+    statusCode: 200,
+    success: true,
+    chargeId: existingCharge?.id,
+    payload,
+  });
+
+  // Idempotent update
+  if (existingCharge) {
+    if (status === 'paid' && existingCharge.status !== 'paid') {
+      existingCharge.status = 'paid';
+      existingCharge.paidAt = payload.paid_at || new Date().toISOString();
+      store.saveCharge(existingCharge);
+
+      // Forward webhook event to client application
+      if (existingCharge.appId) {
+        const clientApp = store.getAppById(existingCharge.appId);
+        if (clientApp) {
+          dispatchClientWebhook(existingCharge, clientApp, 'charge.paid');
+        }
+      }
+    } else if (status === 'failed' && existingCharge.status !== 'failed') {
+      existingCharge.status = 'failed';
+      existingCharge.failedAt = new Date().toISOString();
+      store.saveCharge(existingCharge);
+
+      if (existingCharge.appId) {
+        const clientApp = store.getAppById(existingCharge.appId);
+        if (clientApp) {
+          dispatchClientWebhook(existingCharge, clientApp, 'charge.failed');
+        }
+      }
+    }
+  }
+
+  // Nuvex specifies returning 200 OK
+  return res.status(200).json({ received: true });
+});
+
+// ----------------------------------------------------
+// Payment Links
+// ----------------------------------------------------
+app.get('/api/v1/links', (_req, res) => {
+  try {
+    const links = store.getLinks();
+    res.json({ success: true, links });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/v1/links/:idOrSlug', (req, res) => {
+  try {
+    const link = store.getLinkById(req.params.idOrSlug);
+    if (!link) {
+      return res.status(404).json({ success: false, error: 'Link de pagamento não encontrado' });
+    }
+    res.json({ success: true, link });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/links', requireAdminAuth, (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      amount,
+      imageUrl,
+      allowedMethods,
+      requiresCustomerName,
+      requiresCustomerEmail,
+      requiresCustomerPhone,
+      productId,
+    } = req.body;
+
+    if (!title || !amount) {
+      return res.status(400).json({ success: false, error: 'Título e preço são obrigatórios' });
+    }
+
+    const slug =
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '') +
+      '-' +
+      Math.random().toString(36).substring(2, 6);
+
+    const newLink: PaymentLink = {
+      id: `link_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      slug,
+      appId: req.body.appId || store.getApps()[0]?.id,
+      title,
+      description: description || '',
+      amount: Number(amount),
+      currency: 'AOA',
+      imageUrl: imageUrl || '',
+      allowedMethods: allowedMethods && allowedMethods.length > 0 ? allowedMethods : ['GPO', 'GPR'],
+      isActive: true,
+      requiresCustomerName: requiresCustomerName ?? true,
+      requiresCustomerEmail: requiresCustomerEmail ?? true,
+      requiresCustomerPhone: requiresCustomerPhone ?? true,
+      totalViews: 0,
+      totalSalesCount: 0,
+      totalSalesAmount: 0,
+      createdAt: new Date().toISOString(),
+      productId,
+    };
+
+    store.saveLink(newLink);
+
+    // If tied to product, update product
+    if (productId) {
+      const prod = store.getProductById(productId);
+      if (prod) {
+        prod.paymentLinkId = newLink.id;
+        store.saveProduct(prod);
+      }
+    }
+
+    res.status(201).json({ success: true, link: newLink });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/v1/links/:id', requireAdminAuth, (req, res) => {
+  try {
+    const deleted = store.deleteLink(req.params.id);
+    res.json({ success: deleted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Mini Loja / Products
+// ----------------------------------------------------
+app.get('/api/v1/products', (_req, res) => {
+  try {
+    const products = store.getProducts();
+    res.json({ success: true, products });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/products', requireAdminAuth, (req, res) => {
+  try {
+    const { name, description, price, imageUrl, category, stock, createLink } = req.body;
+    if (!name || !price) {
+      return res.status(400).json({ success: false, error: 'Nome e preço são obrigatórios' });
+    }
+
+    const newProd: Product = {
+      id: `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      appId: store.getApps()[0]?.id,
+      name,
+      description: description || '',
+      price: Number(price),
+      currency: 'AOA',
+      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&auto=format&fit=crop&q=80',
+      category: category || 'Geral',
+      stock: stock ? Number(stock) : undefined,
+      isActive: true,
+      salesCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (createLink) {
+      const slug =
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '') +
+        '-' +
+        Math.random().toString(36).substring(2, 6);
+
+      const link: PaymentLink = {
+        id: `link_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        slug,
+        appId: newProd.appId,
+        title: newProd.name,
+        description: newProd.description,
+        amount: newProd.price,
+        currency: 'AOA',
+        imageUrl: newProd.imageUrl,
+        allowedMethods: ['GPO', 'GPR'],
+        isActive: true,
+        requiresCustomerName: true,
+        requiresCustomerEmail: true,
+        requiresCustomerPhone: true,
+        totalViews: 0,
+        totalSalesCount: 0,
+        totalSalesAmount: 0,
+        createdAt: new Date().toISOString(),
+        productId: newProd.id,
+      };
+      store.saveLink(link);
+      newProd.paymentLinkId = link.id;
+    }
+
+    store.saveProduct(newProd);
+    res.status(201).json({ success: true, product: newProd });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/v1/products/:id', requireAdminAuth, (req, res) => {
+  try {
+    const prod = store.getProductById(req.params.id);
+    if (!prod) {
+      return res.status(404).json({ success: false, error: 'Produto não encontrado' });
+    }
+    const updated = store.saveProduct({ ...prod, ...req.body });
+    res.json({ success: true, product: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/v1/products/:id', requireAdminAuth, (req, res) => {
+  try {
+    const deleted = store.deleteProduct(req.params.id);
+    res.json({ success: deleted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Client Applications & API Keys Management
+// ----------------------------------------------------
+app.get('/api/v1/apps', requireAdminAuth, (_req, res) => {
+  try {
+    const apps = store.getApps();
+    res.json({ success: true, apps });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/apps', requireAdminAuth, (req, res) => {
+  try {
+    const { name, description, userEmail, webhookUrl, webhookEvents } = req.body;
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'Nome da aplicação é obrigatório' });
+    }
+
+    const randHex = (n = 16) => Math.random().toString(36).substring(2, 2 + n);
+
+    const newApp: ClientApp = {
+      id: `app_${Date.now()}_${randHex(6)}`,
+      name,
+      description: description || '',
+      userId: `usr_${randHex(6)}`,
+      userEmail: userEmail || 'kaleyapt@gmail.com',
+      apiKeyLive: `nvx_live_${randHex(18)}`,
+      secretKeyLive: `gw_sec_live_${randHex(20)}`,
+      apiKeyTest: `nvx_test_${randHex(18)}`,
+      secretKeyTest: `gw_sec_test_${randHex(20)}`,
+      webhookUrl: webhookUrl || '',
+      webhookSecret: `whsec_${randHex(20)}`,
+      webhookEvents: webhookEvents || ['charge.paid', 'charge.failed', 'charge.pending'],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    store.saveApp(newApp);
+    res.status(201).json({ success: true, app: newApp });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/v1/apps/:id', requireAdminAuth, (req, res) => {
+  try {
+    const appItem = store.getAppById(req.params.id);
+    if (!appItem) {
+      return res.status(404).json({ success: false, error: 'Aplicação não encontrada' });
+    }
+    const updated = store.saveApp({ ...appItem, ...req.body });
+    res.json({ success: true, app: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/v1/apps/:id', requireAdminAuth, (req, res) => {
+  try {
+    const deleted = store.deleteApp(req.params.id);
+    res.json({ success: deleted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Admin: Providers & Multi-Provider Engine
+// ----------------------------------------------------
+app.get('/api/v1/providers', requireAdminAuth, (_req, res) => {
+  try {
+    const configs = providerManager.getAllConfigs();
+    res.json({ success: true, providers: configs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/v1/providers/:id', requireAdminAuth, (req, res) => {
+  try {
+    const updated = providerManager.updateConfig(req.params.id, req.body);
+    store.saveProvider(updated);
+    store.addLog({
+      type: 'provider_config',
+      title: `Configuração atualizada para o provedor ${updated.name}`,
+      details: `Status ativo: ${updated.isActive} | Modo teste: ${updated.testMode} | Métodos: ${updated.supportedMethods.join(', ')}`,
+      endpoint: `/api/v1/providers/${req.params.id}`,
+      statusCode: 200,
+      success: true,
+    });
+    res.json({ success: true, provider: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/providers/:id/test', requireAdminAuth, async (req, res) => {
+  try {
+    const result = await providerManager.testProviderConnection(req.params.id);
+    store.addLog({
+      type: 'provider_sync',
+      title: `Teste de Conexão com Provedor (${req.params.id})`,
+      details: result.message,
+      endpoint: `/api/v1/providers/${req.params.id}/test`,
+      statusCode: result.success ? 200 : 502,
+      success: result.success,
+    });
+    res.json({ success: result.success, result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Webhook Test Dispatcher for Clients
+// ----------------------------------------------------
+app.post('/api/v1/webhooks/test', requireAdminAuth, async (req, res) => {
+  try {
+    const { url, secret, event } = req.body;
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'URL do webhook é obrigatória' });
+    }
+
+    const testResult = await testWebhookEndpoint(url, secret || 'whsec_test', event || 'charge.paid');
+    res.json({ success: true, result: testResult });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// System & Webhook Logs
+// ----------------------------------------------------
+app.get('/api/v1/logs', requireAdminAuth, (_req, res) => {
+  try {
+    const logs = store.getLogs();
+    res.json({ success: true, logs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// Vite Middleware / Static Serving
+// ----------------------------------------------------
+async function start() {
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Payment Gateway Platform server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+start();

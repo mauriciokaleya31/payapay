@@ -1,0 +1,227 @@
+{
+  "users": [
+    {
+      "id": "usr_admin_mauricio",
+      "email": "kaleyapt@gmail.com",
+      "name": "Maurício",
+      "role": "super_admin",
+      "passwordHash": "f29ad548c059c70d78063a1ef4d129ee3fba89c215167e568d4e0ae5f72419734cf30ba8ca8581d08407a08912a4c964262bebde27cac2a3d6ccc603014cbe04",
+      "passwordSalt": "3f87d0143dcc5462ac83f03e6fe7794c",
+      "status": "active",
+      "createdAt": "2026-09-14T03:46:17.386Z",
+      "lastLoginAt": "2026-09-14T03:51:48.633Z",
+      "lastLoginIp": "127.0.0.1"
+    }
+  ],
+  "sessions": [
+    {
+      "token": "adm_token_5830f189e842ea03fa364e884eeed0de4b6906f795a5b389d6f5103ebbabd84e",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "userName": "Maurício",
+      "role": "super_admin",
+      "createdAt": "2026-09-14T03:46:20.493Z",
+      "expiresAt": "2026-09-21T03:46:20.493Z",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.88.1"
+    },
+    {
+      "token": "adm_token_9924a322637dd324a1397f88801ebc5be7c26405c6e66a1c8af4b2963d5f6173",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "userName": "Maurício",
+      "role": "super_admin",
+      "createdAt": "2026-09-14T03:51:48.633Z",
+      "expiresAt": "2026-09-21T03:51:48.633Z",
+      "ip": "127.0.0.1",
+      "userAgent": "curl/7.88.1"
+    }
+  ],
+  "charges": [
+    {
+      "id": "ch_1789357905996_nm5n",
+      "merchantTransactionId": "tx_1789357905996_iev7s",
+      "appName": "Gateway Checkout",
+      "providerId": "nuvex",
+      "providerChargeId": "nvx_ch_migh1q6",
+      "amount": 2500,
+      "currency": "AOA",
+      "method": "GPO",
+      "phoneNumber": "923456789",
+      "description": "Teste MCX Express",
+      "status": "pending",
+      "environment": "live",
+      "createdAt": "2026-09-14T03:51:45.996Z",
+      "providerRawResponse": {
+        "id": "nvx_ch_migh1q6",
+        "amount": 2500,
+        "method": "GPO",
+        "status": "pending",
+        "phone_number": "923456789",
+        "merchant_transaction_id": "tx_1789357905996_iev7s",
+        "mode": "sandbox",
+        "message": "Notificação push enviada para o terminal Multicaixa Express do cliente."
+      }
+    },
+    {
+      "id": "ch_1789357902899_h1kt",
+      "merchantTransactionId": "tx_1789357902898_g6y7s",
+      "appName": "Gateway Checkout",
+      "providerId": "nuvex",
+      "providerChargeId": "nvx_ch_pmfg7in",
+      "amount": 5000,
+      "currency": "AOA",
+      "method": "GPR",
+      "description": "Teste de Integracao de Referencia",
+      "status": "pending",
+      "referenceDetails": {
+        "entity": "00123",
+        "reference": "918 868 736",
+        "amount": 5000,
+        "expiryDate": "2026-09-16T03:51:42.898Z"
+      },
+      "environment": "live",
+      "createdAt": "2026-09-14T03:51:42.899Z",
+      "providerRawResponse": {
+        "id": "nvx_ch_pmfg7in",
+        "amount": 5000,
+        "method": "GPR",
+        "status": "pending",
+        "merchant_transaction_id": "tx_1789357902898_g6y7s",
+        "entity": "00123",
+        "reference": "918 868 736",
+        "mode": "sandbox"
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "link_cobranca_padrao",
+      "slug": "pagamento-expresso",
+      "appId": "app_gateway_angola",
+      "title": "Pagamento Expresso Multicaixa",
+      "description": "Link seguro para recebimento de pagamentos via Multicaixa Express e Referência Bancária.",
+      "amount": 10000,
+      "currency": "AOA",
+      "imageUrl": "https://images.unsplash.com/photo-1556742049-0a67e557224f?w=600&auto=format&fit=crop&q=80",
+      "allowedMethods": [
+        "GPO",
+        "GPR"
+      ],
+      "isActive": true,
+      "requiresCustomerName": true,
+      "requiresCustomerEmail": true,
+      "requiresCustomerPhone": true,
+      "totalViews": 0,
+      "totalSalesCount": 0,
+      "totalSalesAmount": 0,
+      "createdAt": "2026-09-14T03:46:17.387Z"
+    }
+  ],
+  "products": [],
+  "apps": [
+    {
+      "id": "app_gateway_angola",
+      "name": "Gateway Oficial Angola",
+      "description": "Integração de pagamentos com Nuvex (Multicaixa Express e Referência Bancária).",
+      "userId": "usr_admin_mauricio",
+      "userEmail": "kaleyapt@gmail.com",
+      "apiKeyLive": "nvx_live_ao_984392482348",
+      "secretKeyLive": "gw_sec_live_9a48f831bc4029a7",
+      "apiKeyTest": "nvx_test_ao_123490812394",
+      "secretKeyTest": "gw_sec_test_7e31b942ac1104e2",
+      "webhookUrl": "",
+      "webhookSecret": "whsec_gateway_9941_real",
+      "webhookEvents": [
+        "charge.paid",
+        "charge.failed",
+        "charge.pending"
+      ],
+      "isActive": true,
+      "createdAt": "2026-09-14T03:46:17.387Z"
+    }
+  ],
+  "logs": [
+    {
+      "id": "log_1789357952347_oowl",
+      "timestamp": "2026-09-14T03:52:32.347Z",
+      "type": "provider_sync",
+      "title": "Teste de Conexão com Provedor (nuvex)",
+      "details": "Servidor Nuvex operacional (604ms). Modo Sandbox activo (insira a sua chave Live oficial para autenticação de produção).",
+      "endpoint": "/api/v1/providers/nuvex/test",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789357912564_ye0i",
+      "timestamp": "2026-09-14T03:51:52.564Z",
+      "type": "provider_sync",
+      "title": "Teste de Conexão com Provedor (nuvex)",
+      "details": "Conexão bem sucedida com Nuvex API (401 HTTP em 795ms)",
+      "endpoint": "/api/v1/providers/nuvex/test",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789357908633_zc8l",
+      "timestamp": "2026-09-14T03:51:48.633Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 127.0.0.1. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_1789357905996_fj1b",
+      "timestamp": "2026-09-14T03:51:45.996Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 2500 Kz (GPO)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789357905996_iev7s",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789357905996_nm5n",
+      "payload": {
+        "amount": 2500,
+        "method": "GPO"
+      }
+    },
+    {
+      "id": "log_1789357902899_s3bb",
+      "timestamp": "2026-09-14T03:51:42.899Z",
+      "type": "api_request",
+      "title": "Cobrança Criada: 5000 Kz (GPR)",
+      "details": "Provedor: Nuvex Pagamentos | MerchantTx: tx_1789357902898_g6y7s",
+      "endpoint": "/api/v1/charges",
+      "statusCode": 201,
+      "success": true,
+      "chargeId": "ch_1789357902899_h1kt",
+      "payload": {
+        "amount": 5000,
+        "method": "GPR"
+      }
+    },
+    {
+      "id": "log_1789357580493_f2e6",
+      "timestamp": "2026-09-14T03:46:20.493Z",
+      "type": "api_request",
+      "title": "Login com Sucesso: kaleyapt@gmail.com (super_admin)",
+      "details": "Sessão iniciada via IP 127.0.0.1. Acesso concedido ao Painel Administrativo.",
+      "endpoint": "/api/v1/auth/login",
+      "statusCode": 200,
+      "success": true
+    },
+    {
+      "id": "log_init_01",
+      "type": "api_request",
+      "title": "Sistema de Gateway e Segurança Inicializado",
+      "details": "Administrador kaleyapt@gmail.com cadastrado com autenticação segura. Painel pronto para operação real.",
+      "endpoint": "/api/v1/auth",
+      "statusCode": 200,
+      "success": true,
+      "timestamp": "2026-09-14T03:46:17.387Z"
+    }
+  ],
+  "providers": []
+}
