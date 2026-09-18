@@ -47,7 +47,7 @@ export const HostedCheckoutModal: React.FC<HostedCheckoutModalProps> = ({
   const [createdCharge, setCreatedCharge] = useState<Charge | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(300); // 5 minutes
+  const [countdown, setCountdown] = useState(60); // 1 minuto (60 segundos)
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const formatKz = (val: number) => {
@@ -186,25 +186,23 @@ export const HostedCheckoutModal: React.FC<HostedCheckoutModalProps> = ({
         {/* Checkout Top Bar */}
         <div className="bg-slate-950 px-6 py-4 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-bold">
               <Lock className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="text-xs font-semibold text-slate-300">Checkout Livre & Seguro</div>
-              <div className="text-sm font-bold text-white flex items-center space-x-1.5">
-                <span>Nuvex Gateway Angola</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-bold">
-                  256-bit SSL
-                </span>
+              <div className="text-sm font-bold text-white">
+                Pagamento Seguro
               </div>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-xs font-medium transition-colors"
+            title="Fechar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
+            <span>Fechar</span>
           </button>
         </div>
 
@@ -408,21 +406,6 @@ export const HostedCheckoutModal: React.FC<HostedCheckoutModalProps> = ({
                         : 'Já Confirmei no Telemóvel (Verificar Pagamento Agora)'}
                     </span>
                   </button>
-
-                  {/* Simulator button */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2 text-left">
-                    <span className="text-[11px] text-slate-500 block font-semibold">
-                      Ambiente de Teste / Demonstração Rápida:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleSimulatePinApproval}
-                      className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold shadow-2xs transition-all flex items-center justify-center space-x-1.5"
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span>Simular Aprovação Imediata do PIN</span>
-                    </button>
-                  </div>
                 </div>
               ) : (
                 /* GPR Pending - Referência Bancária Details */
@@ -437,68 +420,59 @@ export const HostedCheckoutModal: React.FC<HostedCheckoutModalProps> = ({
                     </p>
                   </div>
 
-                  {createdCharge.referenceDetails && (
-                    <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-4 space-y-3">
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="bg-white p-3 rounded-xl border border-slate-200">
-                          <div className="text-[11px] text-slate-500 font-semibold">Entidade:</div>
-                          <div className="font-mono text-lg font-black text-slate-900">
-                            {createdCharge.referenceDetails.entity}
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-3 rounded-xl border border-slate-200">
-                          <div className="text-[11px] text-slate-500 font-semibold">Referência:</div>
-                          <div className="font-mono text-lg font-black text-blue-700">
-                            {createdCharge.referenceDetails.reference}
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-3 rounded-xl border border-slate-200">
-                          <div className="text-[11px] text-slate-500 font-semibold">Montante:</div>
-                          <div className="font-bold text-base text-slate-900">
-                            {formatKz(createdCharge.referenceDetails.amount)}
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-3 rounded-xl border border-slate-200">
-                          <div className="text-[11px] text-slate-500 font-semibold">Validade:</div>
-                          <div className="text-xs font-bold text-slate-800">
-                            {new Date(createdCharge.referenceDetails.expiryDate).toLocaleDateString('pt-PT')}
-                          </div>
+                  <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-white p-3 rounded-xl border border-slate-200">
+                        <div className="text-[11px] text-slate-500 font-semibold">Entidade:</div>
+                        <div className="font-mono text-lg font-black text-slate-900">
+                          {createdCharge.referenceDetails?.entity || (createdCharge as any).referenceEntity || '10111'}
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          const str = `Entidade: ${createdCharge.referenceDetails?.entity}\nReferência: ${createdCharge.referenceDetails?.reference}\nMontante: ${formatKz(amount)}`;
-                          copyToClipboard(str, 'all_ref');
-                        }}
-                        className="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
-                      >
-                        {copiedField === 'all_ref' ? (
-                          <>
-                            <Check className="w-4 h-4 text-emerald-600" />
-                            <span>Dados Copiados com Sucesso!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            <span>Copiar Dados de Pagamento</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
+                      <div className="bg-white p-3 rounded-xl border border-slate-200">
+                        <div className="text-[11px] text-slate-500 font-semibold">Referência:</div>
+                        <div className="font-mono text-lg font-black text-blue-700">
+                          {createdCharge.referenceDetails?.reference || (createdCharge as any).referenceNumber || '---'}
+                        </div>
+                      </div>
 
-                  {/* Simulator for Reference Payment */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
-                    <span className="text-slate-600 font-medium">Já efetuou o pagamento no ATM/Banco?</span>
+                      <div className="bg-white p-3 rounded-xl border border-slate-200">
+                        <div className="text-[11px] text-slate-500 font-semibold">Montante:</div>
+                        <div className="font-bold text-base text-slate-900">
+                          {formatKz(createdCharge.amount)}
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-slate-200">
+                        <div className="text-[11px] text-slate-500 font-semibold">Validade:</div>
+                        <div className="text-xs font-bold text-slate-800">
+                          {createdCharge.referenceDetails?.expiryDate 
+                            ? new Date(createdCharge.referenceDetails.expiryDate).toLocaleDateString('pt-PT') 
+                            : '48 Horas'}
+                        </div>
+                      </div>
+                    </div>
+
                     <button
-                      onClick={handleSimulatePinApproval}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-2xs"
+                      onClick={() => {
+                        const ent = createdCharge.referenceDetails?.entity || (createdCharge as any).referenceEntity || '10111';
+                        const ref = createdCharge.referenceDetails?.reference || (createdCharge as any).referenceNumber || '---';
+                        const str = `Entidade: ${ent}\nReferência: ${ref}\nMontante: ${formatKz(amount)}`;
+                        copyToClipboard(str, 'all_ref');
+                      }}
+                      className="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors"
                     >
-                      Confirmar Pagamento
+                      {copiedField === 'all_ref' ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-600" />
+                          <span>Dados Copiados com Sucesso!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span>Copiar Dados de Pagamento</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

@@ -13,7 +13,8 @@ import {
   ProviderConfig,
   BankAccount,
   KycDocument,
-  WithdrawalRequest
+  WithdrawalRequest,
+  PlatformSettings
 } from './types.js';
 
 interface DatabaseSchema {
@@ -28,6 +29,7 @@ interface DatabaseSchema {
   bankAccounts?: BankAccount[];
   kycDocuments?: KycDocument[];
   withdrawals?: WithdrawalRequest[];
+  platformSettings?: PlatformSettings;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -77,6 +79,7 @@ class MemoryAndFileStore {
           bankAccounts: parsed.bankAccounts || [],
           kycDocuments: parsed.kycDocuments || [],
           withdrawals: parsed.withdrawals || [],
+          platformSettings: parsed.platformSettings || undefined,
         };
       }
     } catch (err) {
@@ -690,6 +693,32 @@ class MemoryAndFileStore {
       dailyVolume,
       todayHourlyVolume,
     };
+  }
+
+  // --- Platform Branding Settings ---
+  getPlatformSettings(): PlatformSettings {
+    if (!this.data.platformSettings) {
+      this.data.platformSettings = {
+        platformName: 'Pay Yetux',
+        platformLogoUrl: '',
+        tagline: 'Portal de Pagamentos Angola',
+        supportEmail: 'suporte@payyetux.ao',
+        supportPhone: '+244 923 456 789',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return this.data.platformSettings;
+  }
+
+  savePlatformSettings(settings: Partial<PlatformSettings>): PlatformSettings {
+    const current = this.getPlatformSettings();
+    this.data.platformSettings = {
+      ...current,
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    };
+    this.persistToDisk();
+    return this.data.platformSettings;
   }
 }
 

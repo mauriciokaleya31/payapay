@@ -71,6 +71,8 @@ export interface Charge {
   paymentLinkId?: string;
   productId?: string;
   referenceDetails?: PaymentReferenceDetails; // For GPR
+  referenceEntity?: string;
+  referenceNumber?: string;
   metadata?: Record<string, any>;
   environment: 'live' | 'test';
   platformFeeRate: number; // e.g. 0.20 for 20%
@@ -200,7 +202,7 @@ export interface AuthSession {
 
 export interface AuditLog {
   id: string;
-  type: 'webhook_received' | 'webhook_dispatched' | 'api_request' | 'provider_sync' | 'system_error' | 'provider_config';
+  type: 'webhook_received' | 'webhook_dispatched' | 'api_request' | 'provider_sync' | 'system_error' | 'provider_config' | 'charge_status';
   title: string;
   details?: string;
   endpoint?: string;
@@ -285,4 +287,13 @@ export interface GatewayStats {
     amount: number;
     count: number;
   }[];
+}
+
+export interface PlatformSettings {
+  platformName: string;
+  platformLogoUrl?: string;
+  tagline?: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  updatedAt?: string;
 }

@@ -29,6 +29,8 @@ export interface Charge {
   paymentLinkId?: string;
   productId?: string;
   referenceDetails?: PaymentReferenceDetails;
+  referenceEntity?: string;
+  referenceNumber?: string;
   metadata?: Record<string, any>;
   environment: 'live' | 'test';
   platformFeeRate?: number;
@@ -153,7 +155,7 @@ export interface ProviderConfig {
 
 export interface AuditLog {
   id: string;
-  type: 'webhook_received' | 'webhook_dispatched' | 'api_request' | 'provider_sync' | 'system_error' | 'provider_config';
+  type: 'webhook_received' | 'webhook_dispatched' | 'api_request' | 'provider_sync' | 'system_error' | 'provider_config' | 'charge_status';
   title: string;
   details?: string;
   endpoint?: string;
@@ -271,4 +273,13 @@ export interface AuthResponse {
   token?: string;
   user?: AdminUser;
   error?: string;
+}
+
+export interface PlatformSettings {
+  platformName: string;
+  platformLogoUrl?: string;
+  tagline?: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  updatedAt?: string;
 }

@@ -607,6 +607,49 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ----------------------------------------------------
+// Platform Settings (Branding: Name & Logo)
+// ----------------------------------------------------
+app.get('/api/v1/settings', (_req, res) => {
+  try {
+    const settings = store.getPlatformSettings();
+    res.json({ success: true, settings });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/v1/settings', requireAdminAuth, (req: CustomRequest, res: Response) => {
+  try {
+    const isSuperAdmin = req.adminSession?.role === 'super_admin' || req.adminSession?.role === 'admin';
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, error: 'Apenas administradores podem atualizar as configurações da plataforma.' });
+    }
+
+    const { platformName, platformLogoUrl, tagline, supportEmail, supportPhone } = req.body;
+    const updated = store.savePlatformSettings({
+      platformName: platformName?.trim() || undefined,
+      platformLogoUrl: platformLogoUrl !== undefined ? platformLogoUrl.trim() : undefined,
+      tagline: tagline !== undefined ? tagline.trim() : undefined,
+      supportEmail: supportEmail !== undefined ? supportEmail.trim() : undefined,
+      supportPhone: supportPhone !== undefined ? supportPhone.trim() : undefined,
+    });
+
+    store.addLog({
+      type: 'provider_config',
+      title: `Configurações de Identidade da Plataforma Atualizadas`,
+      details: `Nome: ${updated.platformName} | Logo: ${updated.platformLogoUrl ? 'Definido' : 'Padrão'} por ${req.adminSession?.userEmail}`,
+      endpoint: '/api/v1/settings',
+      statusCode: 200,
+      success: true,
+    });
+
+    res.json({ success: true, settings: updated, message: 'Identidade da plataforma atualizada com sucesso!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
 // Dashboard Stats (Protected)
 // ----------------------------------------------------
 app.get('/api/v1/stats', requireAdminAuth, (req: CustomRequest, res: Response) => {
@@ -821,6 +864,8 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
       paymentLinkId: payment_link_id || paymentLinkId,
       productId: product_id || productId,
       referenceDetails: providerResult.referenceDetails,
+      referenceEntity: providerResult.referenceDetails?.entity,
+      referenceNumber: providerResult.referenceDetails?.reference,
       environment: appInfo?.apiKeyTest?.includes(req.headers['authorization'] || '') ? 'test' : 'live',
       platformFeeRate,
       platformFee,
@@ -886,8 +931,19 @@ app.post('/api/v1/charges/:id/sync', async (req, res) => {
     const config = providerManager.getConfig(providerId);
 
     if (provider) {
-      const queryId = charge.providerChargeId || charge.merchantTransactionId;
-      const statusResult = await provider.checkStatus(queryId, config);
+      let queryId = charge.providerChargeId || charge.merchantTransactionId;
+      let statusResult = await provider.checkStatus(queryId, config);
+
+      // Fallback: If status is still pending, also test with merchantTransactionId or providerChargeId
+      if (statusResult.status === 'pending') {
+        const altId = queryId === charge.providerChargeId ? charge.merchantTransactionId : charge.providerChargeId;
+        if (altId && altId !== queryId) {
+          const altResult = await provider.checkStatus(altId, config);
+          if (altResult.status !== 'pending') {
+            statusResult = altResult;
+          }
+        }
+      }
 
       if (statusResult.status !== charge.status) {
         charge.status = statusResult.status;
@@ -923,6 +979,16 @@ app.post('/api/v1/charges/:id/sync', async (req, res) => {
               store.saveProduct(prod);
             }
           }
+
+          store.addLog({
+            type: 'charge_status',
+            title: `Pagamento Aprovado (${charge.method}): ${charge.amount} Kz`,
+            details: `Cliente: ${charge.customerEmail || charge.customerName || 'N/A'} | Provedor: ${provider.name} | Sincronização em tempo real`,
+            endpoint: `/api/v1/charges/${charge.id}/sync`,
+            statusCode: 200,
+            success: true,
+            chargeId: charge.id,
+          });
         }
 
         store.saveCharge(charge);

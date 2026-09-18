@@ -7,7 +7,8 @@ import {
   Lock, 
   LogOut,
   Bell,
-  Cpu
+  Cpu,
+  Globe
 } from 'lucide-react';
 import { AdminUser } from '../types';
 
@@ -21,6 +22,7 @@ interface TopHeaderProps {
   onLogout: () => void;
   onOpenProfile: () => void;
   environment: 'live' | 'test';
+  onOpenPlatformSettings?: () => void;
 }
 
 const tabTitles: Record<string, { title: string; subtitle: string }> = {
@@ -84,6 +86,7 @@ export function TopHeader({
   onLogout,
   onOpenProfile,
   environment,
+  onOpenPlatformSettings,
 }: TopHeaderProps) {
   const currentTabInfo = tabTitles[activeTab] || {
     title: 'Painel Administrativo',
@@ -142,6 +145,20 @@ export function TopHeader({
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
+
+            {/* Admin Platform Brand & Logo Customizer Button */}
+            {(adminUser?.role === 'super_admin' || adminUser?.role === 'admin') && onOpenPlatformSettings && (
+              <button
+                id="header-btn-platform-settings"
+                type="button"
+                onClick={onOpenPlatformSettings}
+                className="hidden md:flex items-center gap-1.5 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                title="Mudar logotipo e nome da plataforma"
+              >
+                <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Logotipo & Nome</span>
+              </button>
+            )}
 
             {/* New Quick Charge Button */}
             <button

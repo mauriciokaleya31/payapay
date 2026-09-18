@@ -17,6 +17,7 @@ import { LandingPageView } from './components/LandingPageView';
 import { StandaloneCheckoutView } from './components/StandaloneCheckoutView';
 import { CheckoutCustomizerModal } from './components/CheckoutCustomizerModal';
 import { SellersManagementView } from './components/SellersManagementView';
+import { PlatformSettingsModal } from './components/PlatformSettingsModal';
 import { api, setOnUnauthorizedCallback } from './services/api';
 import { 
   Charge, 
@@ -26,7 +27,8 @@ import {
   ProviderConfig, 
   AuditLog, 
   GatewayStats,
-  AdminUser
+  AdminUser,
+  PlatformSettings
 } from './types';
 import { 
   Zap, 
@@ -107,6 +109,7 @@ export default function App() {
   const [apps, setApps] = useState<ClientApp[]>([]);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings | null>(null);
 
   // Modal & Checkout States
   const [hostedCheckoutItem, setHostedCheckoutItem] = useState<PaymentLink | Product | null>(null);
@@ -114,6 +117,7 @@ export default function App() {
   const [customizingLink, setCustomizingLink] = useState<PaymentLink | null>(null);
   const [selectedCharge, setSelectedCharge] = useState<Charge | null>(null);
   const [isQuickChargeOpen, setIsQuickChargeOpen] = useState(false);
+  const [isPlatformSettingsOpen, setIsPlatformSettingsOpen] = useState(false);
 
   // Landing Page & Auth Flow States
   const [authViewMode, setAuthViewMode] = useState<'landing' | 'login' | 'register'>('landing');
@@ -170,6 +174,9 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // Fetch platform branding immediately
+        api.getPlatformSettings().then(setPlatformSettings).catch(() => {});
+
         const user = await api.checkAuth();
         if (user) {
           setAdminUser(user);
@@ -198,7 +205,7 @@ export default function App() {
     if (!isAuthenticated) return;
     setIsRefreshing(true);
     try {
-      const [statsData, chargesData, linksData, prodsData, appsData, provsData, logsData] = await Promise.all([
+      const [statsData, chargesData, linksData, prodsData, appsData, provsData, logsData, settingsData] = await Promise.all([
         api.getStats().catch(() => null),
         api.getCharges().catch(() => []),
         api.getLinks().catch(() => []),
@@ -206,9 +213,11 @@ export default function App() {
         api.getApps().catch(() => []),
         api.getProviders().catch(() => []),
         api.getLogs().catch(() => []),
+        api.getPlatformSettings().catch(() => null),
       ]);
 
       if (statsData) setStats(statsData);
+      if (settingsData) setPlatformSettings(settingsData);
       setCharges(chargesData);
       setLinks(linksData);
       setProducts(prodsData);
@@ -516,6 +525,8 @@ export default function App() {
         providers={providers}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        platformSettings={platformSettings}
+        onOpenPlatformSettings={() => setIsPlatformSettingsOpen(true)}
       />
 
       {/* Main Content Area (offset by left sidebar on desktop) */}
@@ -531,6 +542,7 @@ export default function App() {
           onLogout={handleLogout}
           onOpenProfile={() => setIsProfileOpen(true)}
           environment={environment}
+          onOpenPlatformSettings={() => setIsPlatformSettingsOpen(true)}
         />
 
         {/* Dynamic Tab Views */}
@@ -830,6 +842,16 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Admin Platform Brand & Logo Settings Modal */}
+      <PlatformSettingsModal
+        isOpen={isPlatformSettingsOpen}
+        onClose={() => setIsPlatformSettingsOpen(false)}
+        onSaved={(updated) => {
+          setPlatformSettings(updated);
+          showToast('Identidade Atualizada', 'O nome e logotipo da plataforma foram guardados.');
+        }}
+      />
 
       {/* Floating Toast Notification */}
       {toastMessage && (

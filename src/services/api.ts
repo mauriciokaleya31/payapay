@@ -10,7 +10,8 @@ import {
   AuthResponse,
   BankAccount,
   KycDocument,
-  WithdrawalRequest
+  WithdrawalRequest,
+  PlatformSettings
 } from '../types';
 
 const TOKEN_KEY = 'gateway_admin_token';
@@ -287,9 +288,10 @@ export const api = {
   },
 
   syncChargeStatus: async (id: string): Promise<Charge> => {
-    const res = await handleResponse(
-      await fetch(`/api/v1/charges/${id}/sync`, { method: 'POST', headers: getHeaders() })
-    );
+    const res = await fetch(`/api/v1/charges/${id}/sync`, { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Falha ao sincronizar estado');
     return data.charge;
@@ -622,5 +624,25 @@ export const api = {
     const res = await handleResponse(await fetch('/api/v1/logs', { headers: getHeaders() }));
     const data = await res.json();
     return data.logs || [];
+  },
+  
+  // Platform Identity Settings
+  getPlatformSettings: async (): Promise<PlatformSettings> => {
+    const res = await fetch('/api/v1/settings');
+    const data = await res.json();
+    return data.settings || { platformName: 'Pay Yetux', tagline: 'Portal de Pagamentos Angola' };
+  },
+
+  updatePlatformSettings: async (settings: Partial<PlatformSettings>): Promise<PlatformSettings> => {
+    const res = await handleResponse(
+      await fetch('/api/v1/settings', {
+        method: 'PUT',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(settings),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao atualizar configurações da plataforma');
+    return data.settings;
   },
 };

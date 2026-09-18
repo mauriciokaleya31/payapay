@@ -13,9 +13,13 @@ import {
   ChevronRight, 
   Copy, 
   Check, 
-  ExternalLink,
-  Sparkles,
-  FileText
+  FileText,
+  X,
+  RefreshCw,
+  Mail,
+  Phone,
+  UserCheck,
+  Building
 } from 'lucide-react';
 import { PaymentLink, Product, Charge, PaymentMethodType, CheckoutCustomization } from '../types';
 import { api } from '../services/api';
@@ -34,7 +38,7 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
   onOpenCustomerPortal,
 }) => {
   const customization: CheckoutCustomization = item.customization || {
-    brandName: 'Pay Yetux Vendas Digitais',
+    brandName: 'Pay Yetux Vendas',
     brandColor: '#059669', // Emerald
     guaranteeBadge: true,
     guaranteeDays: 7,
@@ -50,11 +54,13 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
   const amount = item.price !== undefined ? item.price : (item as PaymentLink).amount;
   const imageUrl = item.imageUrl || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&auto=format&fit=crop&q=80';
   const digitalFileUrl = (item as any).digitalFileUrl;
+  const sellerEmail = (item as any).sellerEmail || (item as any).userEmail || customization.supportEmail || 'suporte@vendedor.ao';
+  const sellerPhone = (item as any).sellerPhone || customization.supportPhone || '+244 923 456 789';
 
   // Buyer Form State
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('923456789');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>('GPO');
 
   // Checkout Steps: 'form' | 'processing' | 'awaiting_payment' | 'paid' | 'failed'
@@ -62,8 +68,12 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
   const [charge, setCharge] = useState<Charge | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
+  const [isVerifyingNow, setIsVerifyingNow] = useState(false);
 
-  // Scarcity Countdown Timer
+  // 1-minute (60 seconds) Push Authorization Countdown Timer
+  const [pushCountdown, setPushCountdown] = useState(60);
+
+  // Scarcity Countdown Timer (Header)
   const [timeLeft, setTimeLeft] = useState((customization.countdownMinutes || 15) * 60);
 
   useEffect(() => {
@@ -73,6 +83,17 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [customization.showCountdown]);
+
+  // 1-minute countdown specifically for Multicaixa Express authorization
+  useEffect(() => {
+    let timer: any;
+    if (checkoutStep === 'awaiting_payment' && charge?.method === 'GPO' && pushCountdown > 0) {
+      timer = setInterval(() => {
+        setPushCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [checkoutStep, charge?.method, pushCountdown]);
 
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -92,7 +113,7 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerEmail.trim()) {
-      setErrorMessage('O seu e-mail é obrigatório para enviarmos o acesso e a fatura.');
+      setErrorMessage('O seu e-mail é obrigatório para enviarmos as credenciais de login e a fatura.');
       return;
     }
 
@@ -103,14 +124,15 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
 
     setCheckoutStep('processing');
     setErrorMessage(null);
+    setPushCountdown(60);
 
     try {
       const res = await api.createCharge({
         amount,
         method: selectedMethod,
         phoneNumber: customerPhone.trim(),
-        description: `Compra de Infoproduto: ${title}`,
-        customerName: customerName.trim() || 'Cliente Infoproduto',
+        description: `Compra: ${title}`,
+        customerName: customerName.trim() || 'Cliente',
         customerEmail: customerEmail.trim(),
         productId: isProduct ? item.id : undefined,
         paymentLinkId: !isProduct ? item.id : undefined,
@@ -155,27 +177,37 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
       } catch {
         // Continue polling silently
       }
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(pollInterval);
   }, [checkoutStep, charge, onPaymentSuccess]);
 
-  // Simulate payment approval for testing/demo
-  const handleSimulateApproval = async () => {
+  // Manual Instant Verification
+  const handleVerifyStatusNow = async () => {
     if (!charge) return;
+    setIsVerifyingNow(true);
+    setErrorMessage(null);
     try {
-      const updated = await api.simulatePayment(charge.id);
+      const updated = await api.syncChargeStatus(charge.id);
       setCharge(updated);
-      setCheckoutStep('paid');
-      if (onPaymentSuccess) onPaymentSuccess(updated);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao simular aprovação.');
+      if (updated.status === 'paid') {
+        setCheckoutStep('paid');
+        if (onPaymentSuccess) onPaymentSuccess(updated);
+      } else {
+        setErrorMessage('O pagamento ainda aguarda confirmação no Multicaixa Express. Por favor confirme a autorização no telemóvel.');
+      }
+    } catch {
+      setErrorMessage('Não foi possível verificar no momento. Tente novamente em alguns segundos.');
+    } finally {
+      setIsVerifyingNow(false);
     }
   };
 
   const handleCopyGpr = () => {
     if (!charge) return;
-    const text = `Entidade: ${charge.referenceEntity || '00123'} | Ref: ${charge.referenceNumber || '999123456'} | Valor: ${formatKz(charge.amount)}`;
+    const entity = charge.referenceDetails?.entity || (charge as any).referenceEntity || '10111';
+    const reference = charge.referenceDetails?.reference || (charge as any).referenceNumber || '---';
+    const text = `Entidade: ${entity} | Ref: ${reference} | Valor: ${formatKz(charge.amount)}`;
     navigator.clipboard.writeText(text);
     setCopiedRef(true);
     setTimeout(() => setCopiedRef(false), 2000);
@@ -192,14 +224,14 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
       <html lang="pt">
       <head>
         <meta charset="UTF-8">
-        <title>Fatura / Recibo Oficial #${charge.merchantTransactionId || charge.id.substring(0, 8)}</title>
+        <title>Recibo Oficial #${charge.merchantTransactionId || charge.id.substring(0, 8)}</title>
         <style>
           body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #1e293b; background: #fff; }
           .receipt-box { max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; }
           .header { display: flex; justify-content: space-between; border-bottom: 2px solid #059669; padding-bottom: 20px; margin-bottom: 24px; }
           .brand { font-size: 20px; font-weight: bold; color: #059669; }
           .badge-paid { background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 99px; font-weight: bold; font-size: 12px; display: inline-block; }
-          .details { margin: 20px 0; }
+          .details { margin: 20px 0; font-size: 13px; line-height: 1.6; }
           .item-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
           .total { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-top: 20px; padding-top: 12px; border-top: 2px solid #0f172a; }
           .footer { margin-top: 32px; font-size: 11px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 16px; }
@@ -209,8 +241,8 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
         <div class="receipt-box">
           <div class="header">
             <div>
-              <div class="brand">${customization.brandName || 'Pay Yetux Angola'}</div>
-              <div style="font-size: 12px; color: #64748b;">Processamento Seguro Multicaixa Express</div>
+              <div class="brand">${customization.brandName || 'Pay Yetux'}</div>
+              <div style="font-size: 12px; color: #64748b;">Comprovativo de Pagamento Seguro</div>
             </div>
             <div style="text-align: right;">
               <span class="badge-paid">PAGAMENTO CONFIRMADO</span>
@@ -218,22 +250,21 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
             </div>
           </div>
           <div class="details">
-            <p><strong>Fatura Nº:</strong> FT-${charge.id.substring(4, 12).toUpperCase()}</p>
-            <p><strong>Cliente:</strong> ${customerName || charge.customerName || 'Cliente Infoproduto'}</p>
+            <p><strong>Recibo Nº:</strong> FT-${charge.id.substring(4, 12).toUpperCase()}</p>
+            <p><strong>Cliente:</strong> ${customerName || charge.customerName || 'Cliente'}</p>
             <p><strong>E-mail:</strong> ${customerEmail || charge.customerEmail}</p>
-            <p><strong>Método:</strong> ${charge.method === 'GPO' ? 'Multicaixa Express (MCX)' : 'Referência Bancária (GPR)'}</p>
+            <p><strong>Método:</strong> ${charge.method === 'GPO' ? 'Multicaixa Express' : 'Referência Multicaixa (GPR)'}</p>
           </div>
           <div class="item-row">
             <span>${title}</span>
             <span>${formatKz(charge.amount)}</span>
           </div>
           <div class="total">
-            <span>Total Pago:</span>
+            <span>Total Liquidado:</span>
             <span style="color: #059669;">${formatKz(charge.amount)}</span>
           </div>
           <div class="footer">
-            Documento emitido eletronicamente pela plataforma Pay Yetux sob conformidade EMIS Angola.
-            Os dados da sua conta de cliente e link de acesso aos arquivos foram enviados por e-mail.
+            Os dados de acesso ao seu painel foram enviados para o seu e-mail.
           </div>
         </div>
       </body>
@@ -246,215 +277,315 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white">
       {/* Top Header */}
-      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                title="Voltar"
+      <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {customization.logoUrl ? (
+              <img 
+                src={customization.logoUrl} 
+                alt="Logo" 
+                className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-700 shrink-0" 
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm shrink-0"
+                style={{ backgroundColor: customization.brandColor || '#059669' }}
               >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <div className="flex items-center gap-2">
-              {customization.logoUrl ? (
-                <img 
-                  src={customization.logoUrl} 
-                  alt="Logo" 
-                  className="w-8 h-8 rounded-lg object-cover ring-1 ring-slate-700" 
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-sm"
-                  style={{ backgroundColor: customization.brandColor || '#059669' }}
-                >
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-              )}
-              <div>
-                <h1 className="text-sm font-bold text-white tracking-tight leading-tight">
-                  {customization.brandName || 'Pay Yetux Vendas'}
-                </h1>
-                <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5 text-emerald-400" /> Checkout Seguro de Alta Conversão
-                </p>
+                <ShieldCheck className="w-5 h-5" />
               </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-white tracking-tight leading-tight truncate">
+                {customization.brandName || 'Pay Yetux Vendas'}
+              </h1>
             </div>
           </div>
 
-          {/* Countdown Scarcity Header */}
-          {customization.showCountdown && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
-              <Clock className="w-3.5 h-3.5 animate-pulse" />
-              <span>Oferta expira em: <strong>{formatTimer(timeLeft)}</strong></span>
-            </div>
-          )}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Countdown Scarcity Header */}
+            {customization.showCountdown && checkoutStep === 'form' && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+                <Clock className="w-3.5 h-3.5 animate-pulse" />
+                <span>Expira em: <strong>{formatTimer(timeLeft)}</strong></span>
+              </div>
+            )}
+
+            {/* Close Button */}
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700/60 transition-colors shadow-xs"
+                title="Fechar checkout"
+              >
+                <X className="w-4 h-4" />
+                <span>Fechar</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
+      <main className="max-w-4xl mx-auto w-full px-3 sm:px-4 py-6 sm:py-8 flex-1">
         {checkoutStep === 'paid' ? (
-          /* ================= SUCCESS STATE ================= */
-          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-6 sm:p-8 text-center max-w-xl mx-auto shadow-2xl">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-5 ring-8 ring-emerald-500/10">
+          /* ================= COMPLETE THANK YOU PAGE (PÁGINA DE OBRIGADO) ================= */
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-5 sm:p-8 text-center max-w-xl mx-auto shadow-2xl animate-fadeIn">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4 ring-8 ring-emerald-500/10">
               <CheckCircle2 className="w-9 h-9" />
             </div>
 
-            <h2 className="text-2xl font-extrabold text-white">Pagamento Aprovado com Sucesso!</h2>
-            <p className="text-sm text-slate-300 mt-2">
-              A sua compra de <strong>{title}</strong> no valor de <strong className="text-emerald-400">{formatKz(amount)}</strong> foi liquidada.
+            <h2 className="text-2xl font-extrabold text-white">Obrigado pela sua compra!</h2>
+            <p className="text-sm text-emerald-400 font-semibold mt-1">
+              O seu pagamento de <strong className="text-white">{formatKz(amount)}</strong> foi confirmado com sucesso.
             </p>
 
-            {/* Automatic Customer Account Notice */}
-            <div className="mt-6 bg-slate-950 p-4 rounded-xl border border-slate-800 text-left space-y-2">
+            {/* Account & Email Notice Box */}
+            <div className="mt-6 bg-slate-950 p-4 sm:p-5 rounded-xl border border-slate-800 text-left space-y-2.5">
               <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                <Sparkles className="w-4 h-4" />
-                Conta de Cliente Criada Automaticamente
+                <Mail className="w-4 h-4 shrink-0" />
+                <span>Credenciais Enviadas por E-mail</span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Para sua comodidade, criámos a sua conta com o e-mail <strong>{customerEmail || charge?.customerEmail}</strong>. 
-                Enviámos as suas credenciais temporárias de acesso e o recibo de compra detalhado para o seu e-mail.
+                Enviámos os dados de login e recibo para: <strong className="text-white underline break-all">{customerEmail || charge?.customerEmail}</strong>.
               </p>
+              <div className="pt-2 border-t border-slate-800/80 flex items-start sm:items-center gap-2 text-slate-400 text-xs">
+                <UserCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                <span>A sua conta foi ativada. Já pode aceder ao seu painel para consultar as suas compras.</span>
+              </div>
+            </div>
+
+            {/* Seller Contact Info Box */}
+            <div className="mt-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 text-left space-y-2">
+              <div className="flex items-center gap-2 text-slate-300 font-bold text-xs">
+                <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                <span>Contacto do Vendedor</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Para dúvidas ou suporte pós-venda, contacte diretamente o vendedor:
+              </p>
+              <div className="pt-1 flex flex-col sm:flex-row flex-wrap gap-2 text-xs text-slate-300">
+                {sellerEmail && (
+                  <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-800 min-w-0">
+                    <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-mono text-[11px] truncate">{sellerEmail}</span>
+                  </div>
+                )}
+                {sellerPhone && (
+                  <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-800 shrink-0">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-mono text-[11px]">{sellerPhone}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-2.5">
               {digitalFileUrl && (
                 <a
                   href={digitalFileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2"
                 >
-                  <Download className="w-4 h-4" />
-                  Descarregar Infoproduto / Material Agora
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>Descarregar Conteúdo</span>
                 </a>
               )}
-
-              <button
-                onClick={handleDownloadInvoice}
-                className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <FileText className="w-4 h-4 text-emerald-400" />
-                Descarregar Fatura / Recibo em PDF
-              </button>
 
               {onOpenCustomerPortal && (
                 <button
                   onClick={onOpenCustomerPortal}
-                  className="w-full py-2.5 text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline transition-colors"
+                  className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2"
                 >
-                  Acessar Meu Portal de Compras & Histórico &rarr;
+                  <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Aceder ao Painel de Cliente</span>
+                </button>
+              )}
+
+              <button
+                onClick={handleDownloadInvoice}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 hover:text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2"
+              >
+                <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Descarregar Recibo em PDF</span>
+              </button>
+
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                >
+                  Fechar e Concluir
                 </button>
               )}
             </div>
           </div>
         ) : checkoutStep === 'awaiting_payment' && charge ? (
           /* ================= AWAITING PAYMENT STATE ================= */
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 max-w-lg mx-auto shadow-2xl text-center">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-8 max-w-lg mx-auto shadow-2xl text-center animate-fadeIn">
             {charge.method === 'GPO' ? (
               <div>
-                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4 animate-pulse">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-3 animate-pulse">
                   <Smartphone className="w-7 h-7" />
                 </div>
-                <h2 className="text-xl font-bold text-white">Confirme o Push no seu Telemóvel</h2>
-                <p className="text-xs text-slate-300 mt-2">
-                  Enviámos uma notificação de pagamento para o telemóvel <strong>{charge.phoneNumber}</strong>.
+                <h2 className="text-xl font-bold text-white">Confirme no seu Telemóvel</h2>
+                <p className="text-xs text-slate-300 mt-1.5">
+                  Uma notificação de autorização push foi enviada para o telemóvel <strong>{charge.phoneNumber}</strong>.
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Abra a aplicação do seu banco ou Multicaixa Express e digite o seu PIN para aprovar o valor de <strong>{formatKz(charge.amount)}</strong>.
+                  Abra o aplicativo Multicaixa Express e digite o seu PIN para aprovar o montante de <strong className="text-emerald-400">{formatKz(charge.amount)}</strong>.
                 </p>
 
-                <div className="my-6 p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center gap-3">
-                  <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs text-emerald-400 font-medium">A aguardar confirmação em tempo real...</span>
+                {/* 1-Minute Countdown Timer */}
+                <div className="my-5 p-3.5 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-amber-300 font-semibold">
+                    <Clock className="w-4 h-4 text-amber-400 animate-spin" />
+                    <span>Tempo para confirmação:</span>
+                  </div>
+                  <span className="font-mono text-base font-bold text-amber-400">
+                    {formatTimer(pushCountdown)}
+                  </span>
                 </div>
 
-                <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
+                {pushCountdown === 0 && (
+                  <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs text-left flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>O tempo de 1 minuto expirou. Se já autorizou no telemóvel, clique no botão de verificação abaixo. Caso contrário, tente novamente.</span>
+                  </div>
+                )}
+
+                {/* Verification Status & Manual Button */}
+                <div className="space-y-2.5">
                   <button
-                    onClick={handleSimulateApproval}
-                    className="w-full py-2 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 text-xs font-semibold transition-all"
+                    type="button"
+                    onClick={handleVerifyStatusNow}
+                    disabled={isVerifyingNow}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    Simular Aprovação Instantânea (Modo Teste)
+                    <RefreshCw className={`w-4 h-4 ${isVerifyingNow ? 'animate-spin' : ''}`} />
+                    <span>{isVerifyingNow ? 'A verificar pagamento...' : 'Verificar Pagamento Agora'}</span>
                   </button>
+
                   <button
-                    onClick={() => setCheckoutStep('form')}
-                    className="text-xs text-slate-400 hover:text-white"
+                    type="button"
+                    onClick={() => {
+                      setCheckoutStep('form');
+                      setPushCountdown(60);
+                    }}
+                    className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors"
                   >
-                    Alterar número ou método
+                    Alterar número de telemóvel ou método
                   </button>
+
+                  {onBack && (
+                    <button
+                      type="button"
+                      onClick={onBack}
+                      className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      Fechar
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
               <div>
-                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-3">
                   <CreditCard className="w-7 h-7" />
                 </div>
-                <h2 className="text-xl font-bold text-white">Referência Multicaixa Gerada</h2>
+                <h2 className="text-xl font-bold text-white">Referência de Pagamento Gerada</h2>
                 <p className="text-xs text-slate-300 mt-1">
-                  Pague no Multicaixa ou Internet Banking com os dados abaixo:
+                  Efetue o pagamento no ATM Multicaixa ou no seu Internet Banking:
                 </p>
 
-                <div className="my-6 p-4 bg-slate-950 rounded-xl border border-slate-800 text-left space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-slate-800">
+                {/* Reference Details Box */}
+                <div className="my-5 p-4 bg-slate-950 rounded-xl border border-slate-800 text-left space-y-2 text-xs">
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-800">
                     <span className="text-slate-400">Entidade:</span>
-                    <strong className="text-white font-mono text-sm">{charge.referenceEntity || '00123'}</strong>
+                    <strong className="text-white font-mono text-base tracking-wider">
+                      {charge.referenceDetails?.entity || (charge as any).referenceEntity || '10111'}
+                    </strong>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800">
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-800">
                     <span className="text-slate-400">Referência:</span>
-                    <strong className="text-emerald-400 font-mono text-base">{charge.referenceNumber || '999123456'}</strong>
+                    <strong className="text-emerald-400 font-mono text-lg tracking-wider">
+                      {charge.referenceDetails?.reference || (charge as any).referenceNumber || '---'}
+                    </strong>
                   </div>
-                  <div className="flex justify-between py-1">
+                  <div className="flex justify-between items-center py-1.5">
                     <span className="text-slate-400">Montante:</span>
                     <strong className="text-white text-sm">{formatKz(charge.amount)}</strong>
                   </div>
                 </div>
 
-                <button
-                  onClick={handleCopyGpr}
-                  className="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 mb-3"
-                >
-                  {copiedRef ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  {copiedRef ? 'Dados Copiados!' : 'Copiar Dados de Pagamento'}
-                </button>
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={handleCopyGpr}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {copiedRef ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    {copiedRef ? 'Dados Copiados!' : 'Copiar Dados de Pagamento'}
+                  </button>
 
-                <button
-                  onClick={handleSimulateApproval}
-                  className="w-full py-2 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 text-xs font-semibold transition-all mb-2"
-                >
-                  Simular Pagamento no Multicaixa
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleVerifyStatusNow}
+                    disabled={isVerifyingNow}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isVerifyingNow ? 'animate-spin' : ''}`} />
+                    <span>{isVerifyingNow ? 'A verificar pagamento...' : 'Verificar Pagamento Agora'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutStep('form')}
+                    className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors"
+                  >
+                    Voltar e escolher outro método
+                  </button>
+
+                  {onBack && (
+                    <button
+                      type="button"
+                      onClick={onBack}
+                      className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      Fechar
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
         ) : (
           /* ================= MAIN CHECKOUT FORM ================= */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
             {/* Left Column: Product Summary & Guarantee */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                <div className="aspect-video w-full rounded-xl overflow-hidden mb-4 bg-slate-800 relative">
+            <div className="lg:col-span-5 space-y-5">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
+                <div className="aspect-video w-full rounded-xl overflow-hidden mb-3.5 bg-slate-800 relative">
                   <img
                     src={imageUrl}
                     alt={title}
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-2 right-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-bold text-emerald-400 border border-slate-700">
+                  <div className="absolute top-2 right-2 bg-slate-950/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[11px] font-bold text-emerald-400 border border-slate-700">
                     {formatKz(amount)}
                   </div>
                 </div>
 
-                <h2 className="text-lg font-bold text-white tracking-tight">{title}</h2>
-                <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">{description}</p>
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight break-words">{title}</h2>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed break-words">{description}</p>
 
                 <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
                   <span className="text-xs text-slate-400">Total a Pagar:</span>
-                  <span className="text-xl font-extrabold text-emerald-400">{formatKz(amount)}</span>
+                  <span className="text-lg sm:text-xl font-extrabold text-emerald-400">{formatKz(amount)}</span>
                 </div>
               </div>
 
@@ -469,7 +600,7 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                       Garantia de {customization.guaranteeDays || 7} Dias
                     </h4>
                     <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
-                      {customization.guaranteeText || 'Se não ficar satisfeito com o infoproduto, devolvemos 100% do seu dinheiro sem complicações.'}
+                      {customization.guaranteeText || 'Se não ficar satisfeito com o infoproduto, garantimos devolução integral do seu dinheiro.'}
                     </p>
                   </div>
                 </div>
@@ -477,8 +608,8 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
 
               {/* Testimonials */}
               {customization.showTestimonials && customization.testimonials && customization.testimonials.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Avaliações de Alunos</h4>
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Avaliações de Clientes</h4>
                   {customization.testimonials.slice(0, 2).map((t, idx) => (
                     <div key={idx} className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3 text-xs">
                       <div className="flex items-center gap-1 text-amber-400 mb-1">
@@ -486,7 +617,7 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                           <Star key={i} className="w-3 h-3 fill-amber-400" />
                         ))}
                       </div>
-                      <p className="text-slate-300 italic mb-1.5">&ldquo;{t.comment}&rdquo;</p>
+                      <p className="text-slate-300 italic mb-1 break-words">&ldquo;{t.comment}&rdquo;</p>
                       <span className="font-bold text-white text-[11px]">{t.author}</span>
                       {t.role && <span className="text-slate-500 text-[10px] ml-1.5">&bull; {t.role}</span>}
                     </div>
@@ -496,24 +627,24 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
             </div>
 
             {/* Right Column: Buyer Data & Payment Method */}
-            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-7 shadow-xl">
+            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-7 shadow-xl">
               <div className="mb-5 pb-4 border-b border-slate-800">
                 <h3 className="text-base font-bold text-white">Dados do Comprador</h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Preencha os seus dados. O acesso ao produto e sua fatura serão enviados para o seu e-mail.
                 </p>
               </div>
 
               {errorMessage && (
-                <div className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
+                  <span className="break-words">{errorMessage}</span>
                 </div>
               )}
 
               <form onSubmit={handleSubmitOrder} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                     Nome Completo
                   </label>
                   <input
@@ -522,12 +653,12 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Ex: Manuel António"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                     E-mail para Recebimento do Acesso
                   </label>
                   <input
@@ -536,10 +667,10 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     placeholder="seu.email@exemplo.ao"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
-                    Uma conta segura de cliente será gerada automaticamente com este e-mail.
+                    As suas credenciais de acesso ao painel de cliente serão enviadas para este e-mail.
                   </span>
                 </div>
 
@@ -548,42 +679,42 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
                     Escolha o Método de Pagamento
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                     <button
                       type="button"
                       onClick={() => setSelectedMethod('GPO')}
-                      className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      className={`p-3 sm:p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all min-h-[72px] sm:min-h-[76px] ${
                         selectedMethod === 'GPO'
                           ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full mb-2">
-                        <Smartphone className={`w-5 h-5 ${selectedMethod === 'GPO' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <Smartphone className={`w-4 h-4 sm:w-5 sm:h-5 ${selectedMethod === 'GPO' ? 'text-emerald-400' : 'text-slate-400'}`} />
                         {selectedMethod === 'GPO' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-white">Multicaixa Express</p>
-                        <p className="text-[10px] text-slate-400">Push no Telemóvel</p>
+                        <p className="text-xs font-bold text-white leading-tight">MCX Express</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Push no Telemóvel</p>
                       </div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setSelectedMethod('GPR')}
-                      className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      className={`p-3 sm:p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all min-h-[72px] sm:min-h-[76px] ${
                         selectedMethod === 'GPR'
                           ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-sm ring-1 ring-emerald-500'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full mb-2">
-                        <CreditCard className={`w-5 h-5 ${selectedMethod === 'GPR' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <CreditCard className={`w-4 h-4 sm:w-5 sm:h-5 ${selectedMethod === 'GPR' ? 'text-emerald-400' : 'text-slate-400'}`} />
                         {selectedMethod === 'GPR' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-white">Referência GPR</p>
-                        <p className="text-[10px] text-slate-400">ATM / Internet Banking</p>
+                        <p className="text-xs font-bold text-white leading-tight">Referência GPR</p>
+                        <p className="text-[10px] text-slate-400 leading-tight mt-0.5">ATM / Internet Banking</p>
                       </div>
                     </button>
                   </div>
@@ -591,9 +722,9 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
 
                 {/* Multicaixa Express Phone Input */}
                 {selectedMethod === 'GPO' && (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
-                      Número do Telemóvel Multicaixa Express
+                  <div className="pt-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Número de Telemóvel Multicaixa Express
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-xs font-bold">
@@ -605,11 +736,11 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         placeholder="923 456 789"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-14 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-14 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
                       />
                     </div>
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      Você receberá uma solicitação imediata para aprovação no telemóvel.
+                      Receberá uma notificação push no seu telemóvel para autorizar com o PIN.
                     </span>
                   </div>
                 )}
@@ -624,26 +755,22 @@ export const StandaloneCheckoutView: React.FC<StandaloneCheckoutViewProps> = ({
                   >
                     {checkoutStep === 'processing' ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        A iniciar pagamento seguro...
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                        <span>A gerar pagamento...</span>
                       </>
                     ) : (
                       <>
-                        {customization.buttonText || 'Pagar Agora'} &bull; {formatKz(amount)}
-                        <ChevronRight className="w-4 h-4" />
+                        <span className="truncate">{customization.buttonText || 'Pagar Agora'}</span>
+                        <span className="shrink-0 font-extrabold">&bull; {formatKz(amount)}</span>
+                        <ChevronRight className="w-4 h-4 shrink-0" />
                       </>
                     )}
                   </button>
                 </div>
 
-                <div className="flex items-center justify-center gap-4 text-[11px] text-slate-400 pt-2">
-                  <span className="flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-emerald-400" /> Criptografia 256-bit
-                  </span>
-                  <span>&bull;</span>
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-emerald-400" /> Rede EMIS Nuvex
-                  </span>
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 pt-2 text-center">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Pagamento Oficial Seguro</span>
                 </div>
               </form>
             </div>

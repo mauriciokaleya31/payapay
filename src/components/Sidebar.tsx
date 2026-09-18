@@ -17,9 +17,11 @@ import {
   Server,
   Terminal,
   Users,
-  UserCog
+  UserCog,
+  Settings,
+  Globe
 } from 'lucide-react';
-import { AdminUser, ProviderConfig } from '../types';
+import { AdminUser, ProviderConfig, PlatformSettings } from '../types';
 
 interface SidebarProps {
   activeTab: string;
@@ -33,6 +35,8 @@ interface SidebarProps {
   providers: ProviderConfig[];
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
+  platformSettings?: PlatformSettings | null;
+  onOpenPlatformSettings?: () => void;
 }
 
 export function Sidebar({
@@ -47,6 +51,8 @@ export function Sidebar({
   providers,
   isOpenMobile,
   onCloseMobile,
+  platformSettings,
+  onOpenPlatformSettings,
 }: SidebarProps) {
   const nuvexProvider = providers.find((p) => p.id === 'nuvex');
   const isAdmin = adminUser?.role === 'super_admin' || adminUser?.role === 'admin';
@@ -115,6 +121,12 @@ export function Sidebar({
           description: 'Simulação e ferramentas de dev',
         },
         {
+          id: 'platform_settings',
+          label: 'Identidade & Logotipo',
+          icon: Globe,
+          description: 'Mudar nome e logotipo da plataforma',
+        },
+        {
           id: 'logs',
           label: 'Logs & Auditoria',
           icon: ScrollText,
@@ -156,6 +168,11 @@ export function Sidebar({
       ];
 
   const handleSelectTab = (tabId: string) => {
+    if (tabId === 'platform_settings' && onOpenPlatformSettings) {
+      onOpenPlatformSettings();
+      if (onCloseMobile) onCloseMobile();
+      return;
+    }
     setActiveTab(tabId);
     if (onCloseMobile) {
       onCloseMobile();
@@ -180,16 +197,45 @@ export function Sidebar({
       >
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-950/50 ring-1 ring-emerald-400/30 shrink-0">
-              <ShieldCheck className="w-6 h-6 text-white" />
-            </div>
-            <div className="overflow-hidden">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base text-white tracking-tight">Gateway Nuvex</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              {platformSettings?.platformLogoUrl ? (
+                <img
+                  src={platformSettings.platformLogoUrl}
+                  alt="Logo"
+                  className="w-10 h-10 rounded-xl object-cover ring-1 ring-emerald-400/40 shrink-0 bg-slate-800"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-950/50 ring-1 ring-emerald-400/30 shrink-0">
+                  <ShieldCheck className="w-6 h-6 text-white" />
+                </div>
+              )}
+              <div className="overflow-hidden min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-base text-white tracking-tight truncate">
+                    {platformSettings?.platformName || 'Gateway Nuvex'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 font-medium truncate">
+                  {platformSettings?.tagline || 'Portal de Pagamentos Angola'}
+                </p>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">Portal de Pagamentos Angola</p>
             </div>
+
+            {isAdmin && onOpenPlatformSettings && (
+              <button
+                type="button"
+                onClick={onOpenPlatformSettings}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
+                title="Mudar Nome e Logotipo da Plataforma"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {/* Environment Switcher */}

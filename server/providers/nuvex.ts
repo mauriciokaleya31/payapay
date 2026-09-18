@@ -15,7 +15,11 @@ export class NuvexProvider implements PaymentProvider {
 
   async createCharge(input: CreateChargeInput, config?: any): Promise<CreateChargeResult> {
     const apiUrl = (config?.apiUrl || process.env.NUVEX_API_URL || 'https://pagamentos-nuvex.lovable.app').replace(/\/$/, '');
-    const apiKey = config?.apiKey || process.env.NUVEX_API_KEY || '';
+    const apiKey = (config?.apiKey || process.env.NUVEX_API_KEY || '').trim();
+
+    const cleanPhone = input.phoneNumber 
+      ? input.phoneNumber.replace(/\s+/g, '').replace(/^\+244/, '').replace(/^244/, '')
+      : undefined;
 
     const payload: any = {
       amount: Math.round(input.amount),
@@ -23,72 +27,112 @@ export class NuvexProvider implements PaymentProvider {
       merchant_transaction_id: input.merchantTransactionId,
     };
 
-    if (input.phoneNumber) {
-      payload.phone_number = input.phoneNumber.replace(/\s+/g, '');
+    if (cleanPhone) {
+      payload.phone_number = cleanPhone;
+      payload.phone = cleanPhone;
+      payload.customer_phone = cleanPhone;
+    }
+
+    if (input.customerEmail) {
+      payload.customer_email = input.customerEmail;
+      payload.email = input.customerEmail;
+    }
+
+    if (input.customerName) {
+      payload.customer_name = input.customerName;
+      payload.name = input.customerName;
     }
 
     if (input.description) {
       payload.description = input.description;
     }
 
-    const isTestMode = config?.testMode === true || !config?.apiKey;
-    const isLiveKey =
-      !isTestMode &&
-      Boolean(
-        apiKey &&
-        apiKey.startsWith('nvx_live_') &&
-        !apiKey.includes('demo') &&
-        !apiKey.includes('test') &&
-        !apiKey.includes('your_api_key') &&
-        !apiKey.includes('gateway_key') &&
-        !apiKey.includes('xxx') &&
-        apiKey.length > 20
-      );
+    const isTestMode = config?.testMode === true && !apiKey;
+    const hasLiveCredentials = Boolean(apiKey && apiKey.length > 10 && !apiKey.includes('your_api_key'));
 
-    if (isLiveKey) {
+    if (hasLiveCredentials && !isTestMode) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-        const res = await fetch(`${apiUrl}/api/public/v1/charges`, {
+        let res = await fetch(`${apiUrl}/api/public/v1/charges`, {
           method: 'POST',
           headers: this.getHeaders(apiKey),
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
+
+        if (!res.ok && res.status === 404) {
+          res = await fetch(`${apiUrl}/api/v1/charges`, {
+            method: 'POST',
+            headers: this.getHeaders(apiKey),
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+        }
         clearTimeout(timeoutId);
 
         const data = await res.json().catch(() => null);
 
         if (res.ok && data) {
-          const providerChargeId = data.id || data.charge_id || `nvx_${Date.now()}`;
+          const target = data.charge || data.data || data;
+          const providerChargeId = target.id || target.charge_id || data.id || data.charge_id || `nvx_${Date.now()}`;
           let referenceDetails;
 
           if (input.method === 'GPR') {
-            const refObj = typeof data.reference === 'object' && data.reference !== null ? data.reference : {};
+            const refObj = (typeof target.reference === 'object' && target.reference !== null)
+              ? target.reference
+              : (typeof target.reference_details === 'object' && target.reference_details !== null)
+              ? target.reference_details
+              : (typeof data.reference === 'object' && data.reference !== null)
+              ? data.reference
+              : {};
+
             const rawRef =
               refObj.reference ||
+              (typeof target.reference === 'string' ? target.reference : '') ||
               (typeof data.reference === 'string' ? data.reference : '') ||
+              target.referencia ||
               data.referencia ||
               this.generateReferenceNumber();
+
             const cleanRef = String(rawRef).replace(/\s+/g, '');
             const formattedRef =
               cleanRef.length === 9
                 ? `${cleanRef.slice(0, 3)} ${cleanRef.slice(3, 6)} ${cleanRef.slice(6, 9)}`
                 : String(rawRef);
 
+            const entity = String(
+              refObj.entity || 
+              target.entity || 
+              target.entidade || 
+              data.entity || 
+              data.entidade || 
+              '10111'
+            );
+
             referenceDetails = {
-              entity: String(refObj.entity || data.entity || data.entidade || '10111'),
+              entity,
               reference: formattedRef,
-              amount: Number(data.amount || input.amount),
-              expiryDate: data.expires_at || data.expiry_date || new Date(Date.now() + 24 * 3600 * 1000 * 2).toISOString(),
+              amount: Number(target.amount || data.amount || input.amount),
+              expiryDate: target.expires_at || data.expires_at || target.expiry_date || data.expiry_date || new Date(Date.now() + 24 * 3600 * 1000 * 2).toISOString(),
             };
           }
+
+          const rawStatus = String(
+            target.status ||
+            target.state ||
+            target.payment_status ||
+            data.status ||
+            ''
+          ).trim().toLowerCase();
+
+          const isPaid = ['paid', 'pago', 'completed', 'completo', 'approved', 'aprovado', 'success', 'sucesso', 'confirmed', 'confirmado'].includes(rawStatus);
 
           return {
             success: true,
             providerChargeId,
-            status: data.status === 'paid' ? 'paid' : 'pending',
+            status: isPaid ? 'paid' : 'pending',
             referenceDetails,
             rawResponse: data,
           };
@@ -101,7 +145,7 @@ export class NuvexProvider implements PaymentProvider {
         if (!isTestMode && err.message?.includes('Erro no provedor Nuvex')) {
           throw err;
         }
-        // Network timeout or unreachable; will handle via standard sandbox simulation below
+        console.warn('[NuvexProvider] Fallback to sandbox simulation:', err.message);
       }
     }
 
@@ -110,7 +154,7 @@ export class NuvexProvider implements PaymentProvider {
 
     if (input.method === 'GPR') {
       const referenceDetails = {
-        entity: '00123',
+        entity: '10111',
         reference: this.generateReferenceNumber(),
         amount: input.amount,
         expiryDate: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
@@ -129,7 +173,7 @@ export class NuvexProvider implements PaymentProvider {
           merchant_transaction_id: input.merchantTransactionId,
           entity: referenceDetails.entity,
           reference: referenceDetails.reference,
-          mode: isLiveKey ? 'live' : 'sandbox',
+          mode: hasLiveCredentials ? 'live' : 'sandbox',
         },
       };
     } else {
@@ -143,9 +187,9 @@ export class NuvexProvider implements PaymentProvider {
           amount: input.amount,
           method: 'GPO',
           status: 'pending',
-          phone_number: input.phoneNumber,
+          phone_number: cleanPhone || input.phoneNumber,
           merchant_transaction_id: input.merchantTransactionId,
-          mode: isLiveKey ? 'live' : 'sandbox',
+          mode: hasLiveCredentials ? 'live' : 'sandbox',
           message: 'Notificação push enviada para o terminal Multicaixa Express do cliente.',
         },
       };
@@ -164,16 +208,34 @@ export class NuvexProvider implements PaymentProvider {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-        // Try direct ID endpoint
+        // 1. Try public charges direct ID endpoint
         let res = await fetch(`${apiUrl}/api/public/v1/charges/${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
           method: 'GET',
           headers: this.getHeaders(apiKey),
           signal: controller.signal,
         });
 
-        // If not found by direct ID, attempt query by merchant_transaction_id
-        if (!res.ok && res.status === 404 && chargeIdOrMerchantTxId.includes('tx_')) {
+        // 2. Try non-public charges direct ID endpoint if 404
+        if (!res.ok && res.status === 404) {
+          res = await fetch(`${apiUrl}/api/v1/charges/${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
+            method: 'GET',
+            headers: this.getHeaders(apiKey),
+            signal: controller.signal,
+          });
+        }
+
+        // 3. If still not found and contains tx_ or alphanumeric query, attempt query by merchant_transaction_id
+        if (!res.ok && (res.status === 404 || res.status === 400)) {
           res = await fetch(`${apiUrl}/api/public/v1/charges?merchant_transaction_id=${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
+            method: 'GET',
+            headers: this.getHeaders(apiKey),
+            signal: controller.signal,
+          });
+        }
+
+        // 4. Fallback query /api/v1/charges?merchant_transaction_id=...
+        if (!res.ok && (res.status === 404 || res.status === 400)) {
+          res = await fetch(`${apiUrl}/api/v1/charges?merchant_transaction_id=${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
             method: 'GET',
             headers: this.getHeaders(apiKey),
             signal: controller.signal,
@@ -184,16 +246,27 @@ export class NuvexProvider implements PaymentProvider {
 
         if (res.ok) {
           const data = await res.json();
-          const target = data.charge || data.data || data;
+          const target = data.charge || data.data || (Array.isArray(data) ? data[0] : data);
           const rawStatus = String(
             target.status ||
             target.state ||
             target.payment_status ||
-            (data.status && typeof data.status === 'string' ? data.status : '')
+            target.charge_status ||
+            (data.status && typeof data.status === 'string' ? data.status : '') ||
+            (data.state && typeof data.state === 'string' ? data.state : '') ||
+            ''
           ).trim().toLowerCase();
 
-          const isPaid = ['paid', 'pago', 'completed', 'completo', 'approved', 'aprovado', 'success', 'sucesso'].includes(rawStatus);
-          const isFailed = ['failed', 'falhou', 'cancelled', 'cancelado', 'expired', 'expirado', 'rejected', 'rejeitado'].includes(rawStatus);
+          const isPaid = [
+            'paid', 'pago', 'completed', 'completo', 'approved', 'aprovado', 
+            'success', 'sucesso', 'confirmed', 'confirmado', 'settled', 'liquidado',
+            'authorized', 'autorizado'
+          ].includes(rawStatus);
+
+          const isFailed = [
+            'failed', 'falhou', 'cancelled', 'cancelado', 'expired', 'expirado', 
+            'rejected', 'rejeitado', 'error', 'erro', 'denied', 'recusado'
+          ].includes(rawStatus);
 
           const status = isPaid ? 'paid' : isFailed ? 'failed' : 'pending';
 
