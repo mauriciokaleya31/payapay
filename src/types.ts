@@ -41,10 +41,40 @@ export interface Charge {
   providerRawResponse?: any;
 }
 
+export interface CheckoutTestimonial {
+  id?: string;
+  author: string;
+  role?: string;
+  comment: string;
+  rating: number;
+}
+
+export interface CheckoutCustomization {
+  brandName?: string;
+  brandColor?: string; // hex color e.g. #059669
+  accentColor?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
+  headline?: string;
+  subheadline?: string;
+  buttonText?: string;
+  guaranteeBadge?: boolean;
+  guaranteeDays?: number; // 7, 14, 30
+  guaranteeText?: string;
+  showCountdown?: boolean;
+  countdownMinutes?: number;
+  showTestimonials?: boolean;
+  testimonials?: CheckoutTestimonial[];
+  supportPhone?: string;
+  supportEmail?: string;
+  theme?: 'modern' | 'minimal' | 'dark';
+}
+
 export interface PaymentLink {
   id: string;
   slug: string;
   appId?: string;
+  userId?: string;
   title: string;
   description?: string;
   amount: number;
@@ -60,11 +90,14 @@ export interface PaymentLink {
   totalSalesAmount: number;
   createdAt: string;
   productId?: string;
+  customization?: CheckoutCustomization;
+  digitalFileUrl?: string;
 }
 
 export interface Product {
   id: string;
   appId?: string;
+  userId?: string;
   name: string;
   description: string;
   price: number;
@@ -76,6 +109,9 @@ export interface Product {
   salesCount: number;
   createdAt: string;
   paymentLinkId?: string;
+  customization?: CheckoutCustomization;
+  digitalFileUrl?: string;
+  digitalFileName?: string;
 }
 
 export interface ClientApp {
@@ -211,15 +247,22 @@ export interface AdminUser {
   phone?: string;
   avatarUrl?: string;
   companyName?: string;
-  role: 'super_admin' | 'admin' | 'developer' | 'merchant' | 'support' | 'superadmin' | 'finance';
+  role: 'super_admin' | 'admin' | 'developer' | 'merchant' | 'support' | 'superadmin' | 'finance' | 'customer';
   status?: 'active' | 'inactive' | 'blocked';
   platformFeePercentage?: number;
+  kycStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
+  kycNotes?: string;
+  kycSubmittedAt?: string;
+  kycReviewedAt?: string;
+  defaultCheckoutCustomization?: CheckoutCustomization;
   createdAt?: string;
   lastLoginAt?: string;
   stats?: {
     totalApps: number;
     totalCharges: number;
     totalSalesVolume: number;
+    totalProducts?: number;
+    totalLinks?: number;
   };
 }
 

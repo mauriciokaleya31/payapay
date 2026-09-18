@@ -154,47 +154,59 @@ export class NuvexProvider implements PaymentProvider {
 
   async checkStatus(chargeIdOrMerchantTxId: string, config?: any): Promise<CheckStatusResult> {
     const apiUrl = (config?.apiUrl || process.env.NUVEX_API_URL || 'https://pagamentos-nuvex.lovable.app').replace(/\/$/, '');
-    const apiKey = config?.apiKey || process.env.NUVEX_API_KEY || '';
+    const apiKey = (config?.apiKey || process.env.NUVEX_API_KEY || '').trim();
 
-    const isTestMode = config?.testMode === true || !config?.apiKey;
-    const isLiveKey =
-      !isTestMode &&
-      Boolean(
-        apiKey &&
-        apiKey.startsWith('nvx_live_') &&
-        !apiKey.includes('demo') &&
-        !apiKey.includes('test') &&
-        !apiKey.includes('your_api_key') &&
-        !apiKey.includes('gateway_key') &&
-        !apiKey.includes('xxx') &&
-        apiKey.length > 20
-      );
+    const isTestMode = config?.testMode === true && !apiKey;
+    const hasKey = Boolean(apiKey && apiKey.length > 8 && !apiKey.includes('your_api_key'));
 
-    if (isLiveKey) {
+    if (hasKey && !isTestMode) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-        const res = await fetch(`${apiUrl}/api/public/v1/charges/${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
+        // Try direct ID endpoint
+        let res = await fetch(`${apiUrl}/api/public/v1/charges/${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
           method: 'GET',
           headers: this.getHeaders(apiKey),
           signal: controller.signal,
         });
+
+        // If not found by direct ID, attempt query by merchant_transaction_id
+        if (!res.ok && res.status === 404 && chargeIdOrMerchantTxId.includes('tx_')) {
+          res = await fetch(`${apiUrl}/api/public/v1/charges?merchant_transaction_id=${encodeURIComponent(chargeIdOrMerchantTxId)}`, {
+            method: 'GET',
+            headers: this.getHeaders(apiKey),
+            signal: controller.signal,
+          });
+        }
+
         clearTimeout(timeoutId);
 
         if (res.ok) {
           const data = await res.json();
-          const status = data.status === 'paid' ? 'paid' : data.status === 'failed' ? 'failed' : 'pending';
+          const target = data.charge || data.data || data;
+          const rawStatus = String(
+            target.status ||
+            target.state ||
+            target.payment_status ||
+            (data.status && typeof data.status === 'string' ? data.status : '')
+          ).trim().toLowerCase();
+
+          const isPaid = ['paid', 'pago', 'completed', 'completo', 'approved', 'aprovado', 'success', 'sucesso'].includes(rawStatus);
+          const isFailed = ['failed', 'falhou', 'cancelled', 'cancelado', 'expired', 'expirado', 'rejected', 'rejeitado'].includes(rawStatus);
+
+          const status = isPaid ? 'paid' : isFailed ? 'failed' : 'pending';
+
           return {
             success: true,
             status,
-            providerChargeId: data.id || chargeIdOrMerchantTxId,
-            paidAt: data.paid_at || (status === 'paid' ? new Date().toISOString() : undefined),
+            providerChargeId: target.id || data.id || chargeIdOrMerchantTxId,
+            paidAt: target.paid_at || data.paid_at || (status === 'paid' ? new Date().toISOString() : undefined),
             rawResponse: data,
           };
         }
-      } catch {
-        // Fallback to local status
+      } catch (err: any) {
+        console.warn('[NuvexProvider] checkStatus query error:', err.message);
       }
     }
 

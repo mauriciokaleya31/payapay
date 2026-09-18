@@ -12,6 +12,11 @@ import { AdminProvidersView } from './components/AdminProvidersView';
 import { UsersManagementView } from './components/UsersManagementView';
 import { ProfileModal } from './components/ProfileModal';
 import { HostedCheckoutModal } from './components/HostedCheckoutModal';
+import { CustomerDashboardView } from './components/CustomerDashboardView';
+import { LandingPageView } from './components/LandingPageView';
+import { StandaloneCheckoutView } from './components/StandaloneCheckoutView';
+import { CheckoutCustomizerModal } from './components/CheckoutCustomizerModal';
+import { SellersManagementView } from './components/SellersManagementView';
 import { api, setOnUnauthorizedCallback } from './services/api';
 import { 
   Charge, 
@@ -35,6 +40,52 @@ import {
   Lock
 } from 'lucide-react';
 
+const DEMO_INFOPRODUCT_LINK: PaymentLink = {
+  id: 'link_demo_infoproduct',
+  slug: 'guia-mestre-infoprodutos-angola',
+  appId: 'app_demo',
+  title: 'Guia Mestre: Venda de Infoprodutos em Angola com Multicaixa Express',
+  description: 'Aprenda do zero como empacotar seu conhecimento em e-books, mentorias e videoaulas, recebendo pagamentos automáticos em Kwanzas sem intermediários.',
+  amount: 15000,
+  currency: 'AOA',
+  imageUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
+  allowedMethods: ['GPO', 'GPR'],
+  isActive: true,
+  requiresCustomerName: true,
+  requiresCustomerEmail: true,
+  requiresCustomerPhone: true,
+  totalViews: 450,
+  totalSalesCount: 88,
+  totalSalesAmount: 1320000,
+  createdAt: new Date().toISOString(),
+  digitalFileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+  customization: {
+    brandName: 'Academia Digital Yetux',
+    brandColor: '#059669',
+    guaranteeBadge: true,
+    guaranteeDays: 7,
+    guaranteeText: 'Garantia incondicional de 7 dias com devolução total do dinheiro.',
+    buttonText: 'Garantir Acesso Imediato ao Guia',
+    showCountdown: true,
+    countdownMinutes: 15,
+    showTestimonials: true,
+    testimonials: [
+      {
+        author: 'Edvaldo Santos',
+        comment: 'O material mudou a minha perspetiva. Paguei no Multicaixa Express e em 3 segundos já tinha o link no e-mail!',
+        rating: 5,
+        role: 'Empreendedor em Luanda',
+      },
+      {
+        author: 'Teresa Bento',
+        comment: 'Muito direto e prático para o nosso mercado. Recomendo a todos!',
+        rating: 5,
+        role: 'Consultora e Mentora',
+      },
+    ],
+  },
+};
+
 export default function App() {
   // Auth States
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -57,10 +108,16 @@ export default function App() {
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
 
-  // Modal States
+  // Modal & Checkout States
   const [hostedCheckoutItem, setHostedCheckoutItem] = useState<PaymentLink | Product | null>(null);
+  const [standaloneCheckoutItem, setStandaloneCheckoutItem] = useState<PaymentLink | Product | null>(null);
+  const [customizingLink, setCustomizingLink] = useState<PaymentLink | null>(null);
   const [selectedCharge, setSelectedCharge] = useState<Charge | null>(null);
   const [isQuickChargeOpen, setIsQuickChargeOpen] = useState(false);
+
+  // Landing Page & Auth Flow States
+  const [authViewMode, setAuthViewMode] = useState<'landing' | 'login' | 'register'>('landing');
+  const [registerInitialRole, setRegisterInitialRole] = useState<'merchant' | 'customer'>('merchant');
 
   // Quick Charge Form state
   const [quickAmount, setQuickAmount] = useState('15000');
@@ -77,6 +134,28 @@ export default function App() {
     setToastMessage({ title, desc });
     setTimeout(() => setToastMessage(null), 4500);
   };
+
+  // Check URL parameters for standalone checkout on boot (e.g., ?checkout=slug or /pay/slug)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const checkoutSlug = searchParams.get('checkout');
+    const path = window.location.pathname;
+
+    let targetSlug = checkoutSlug;
+    if (!targetSlug && (path.startsWith('/pay/') || path.startsWith('/checkout/'))) {
+      targetSlug = path.replace(/^\/(pay|checkout)\//, '').split('/')[0].trim();
+    }
+
+    if (targetSlug) {
+      api.getLink(targetSlug)
+        .then((link) => {
+          if (link) {
+            setStandaloneCheckoutItem(link);
+          }
+        })
+        .catch((err) => console.warn('Could not load checkout link from URL:', err));
+    }
+  }, []);
 
   // Setup 401 Unauthorized interceptor
   useEffect(() => {
@@ -95,7 +174,9 @@ export default function App() {
         if (user) {
           setAdminUser(user);
           setIsAuthenticated(true);
-          if (user.role === 'developer') {
+          if (user.role === 'customer') {
+            setActiveTab('customer_portal');
+          } else if (user.role === 'developer') {
             setActiveTab('developer_portal');
           }
         } else {
@@ -319,7 +400,38 @@ export default function App() {
   const activeProvider = providers.find((p) => p.id === 'nuvex') || providers[0];
 
   // ----------------------------------------------------
-  // 1. Splash Screen during initial auth verification
+  // 1. Dedicated Standalone Checkout View (No Login Required)
+  // ----------------------------------------------------
+  if (standaloneCheckoutItem) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100">
+        <StandaloneCheckoutView
+          item={standaloneCheckoutItem}
+          onBack={() => {
+            setStandaloneCheckoutItem(null);
+            if (window.location.search.includes('checkout=')) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+          }}
+          onPaymentSuccess={(charge) => {
+            handlePaymentSuccess(charge);
+            showToast('Pagamento Concluído!', 'O seu pedido foi confirmado e o acesso foi liberado.');
+          }}
+          onOpenCustomerPortal={() => {
+            setStandaloneCheckoutItem(null);
+            if (isAuthenticated) {
+              setActiveTab('customer_portal');
+            } else {
+              setAuthViewMode('login');
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // 2. Splash Screen during initial auth verification
   // ----------------------------------------------------
   if (isCheckingAuth) {
     return (
@@ -328,7 +440,7 @@ export default function App() {
           <ShieldCheck className="w-8 h-8 text-white" />
         </div>
         <div className="mt-4 text-center">
-          <h2 className="text-lg font-bold text-slate-100">Gateway Nuvex Angola</h2>
+          <h2 className="text-lg font-bold text-slate-100">Pay Yetux Angola</h2>
           <p className="text-xs text-slate-400 mt-1">Verificando credenciais e integridade da sessão...</p>
         </div>
         <div className="mt-6 w-32 h-1 bg-slate-800 rounded-full overflow-hidden">
@@ -339,14 +451,55 @@ export default function App() {
   }
 
   // ----------------------------------------------------
-  // 2. Authentication Enforcement: Show LoginView
+  // 3. Authentication Enforcement & Public Landing Page
   // ----------------------------------------------------
   if (!isAuthenticated) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+    if (authViewMode === 'landing') {
+      return (
+        <LandingPageView
+          onGoToLogin={() => setAuthViewMode('login')}
+          onGoToRegister={(role) => {
+            setRegisterInitialRole(role || 'merchant');
+            setAuthViewMode('register');
+          }}
+          onOpenDemoCheckout={() => {
+            setStandaloneCheckoutItem(links.length > 0 ? links[0] : DEMO_INFOPRODUCT_LINK);
+          }}
+          links={links}
+          products={products}
+        />
+      );
+    }
+
+    return (
+      <LoginView
+        onLoginSuccess={handleLoginSuccess}
+        onBackToLanding={() => setAuthViewMode('landing')}
+        initialTab={authViewMode === 'register' ? 'register' : 'login'}
+        initialRole={registerInitialRole}
+      />
+    );
   }
 
   // ----------------------------------------------------
-  // 3. Authenticated Admin Panel with Left Sidebar
+  // 3.1. Dedicated Customer Portal for Customer Users
+  // ----------------------------------------------------
+  if (adminUser?.role === 'customer') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100">
+        <CustomerDashboardView
+          customerUser={adminUser}
+          onLogout={handleLogout}
+          onBackToStore={() => {
+            window.location.reload();
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // 4. Authenticated Admin & Merchant Panel with Sidebar
   // ----------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-950 flex font-sans text-slate-100 selection:bg-emerald-500 selection:text-white">
@@ -382,6 +535,22 @@ export default function App() {
 
         {/* Dynamic Tab Views */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {activeTab === 'sellers' && adminUser && (
+            <SellersManagementView currentUser={adminUser} onShowToast={showToast} />
+          )}
+
+          {activeTab === 'landing' && (
+            <LandingPageView
+              onGoToLogin={() => setActiveTab('dashboard')}
+              onGoToRegister={() => setActiveTab('sellers')}
+              onOpenDemoCheckout={() => {
+                setStandaloneCheckoutItem(links.length > 0 ? links[0] : DEMO_INFOPRODUCT_LINK);
+              }}
+              links={links}
+              products={products}
+            />
+          )}
+
           {activeTab === 'users' && adminUser && (
             <UsersManagementView currentUser={adminUser} />
           )}
@@ -417,7 +586,8 @@ export default function App() {
               links={links}
               onCreateLink={handleCreateLink}
               onDeleteLink={handleDeleteLink}
-              onOpenCheckout={(l) => setHostedCheckoutItem(l)}
+              onOpenCheckout={(l) => setStandaloneCheckoutItem(l)}
+              onCustomizeCheckout={(l) => setCustomizingLink(l)}
             />
           )}
 
@@ -426,8 +596,16 @@ export default function App() {
               products={products}
               onCreateProduct={handleCreateProduct}
               onDeleteProduct={handleDeleteProduct}
-              onOpenProductCheckout={(p) => setHostedCheckoutItem(p)}
+              onOpenProductCheckout={(p) => setStandaloneCheckoutItem(p)}
               onNavigateToLinks={() => setActiveTab('links')}
+            />
+          )}
+
+          {activeTab === 'customer_portal' && adminUser && (
+            <CustomerDashboardView
+              customerUser={adminUser}
+              onLogout={handleLogout}
+              onBackToStore={() => setActiveTab('store')}
             />
           )}
 
@@ -480,12 +658,15 @@ export default function App() {
           item={hostedCheckoutItem}
           onClose={() => setHostedCheckoutItem(null)}
           onPaymentSuccess={handlePaymentSuccess}
+          onOpenCustomerPortal={(custUser) => {
+            handleLoginSuccess(custUser);
+          }}
         />
       )}
 
       {/* Quick Charge Creator Modal */}
       {isQuickChargeOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -499,7 +680,7 @@ export default function App() {
               </div>
               <button
                 onClick={() => setIsQuickChargeOpen(false)}
-                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -507,9 +688,9 @@ export default function App() {
 
             <form onSubmit={handleCreateQuickCharge} className="space-y-4 mt-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Montante (AOA) *</label>
+                <label className="font-bold text-slate-200 block mb-1">Montante (AOA) *</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 font-bold text-slate-400 text-xs">Kz</span>
+                  <span className="absolute left-3 top-2.5 font-bold text-slate-300 text-xs">Kz</span>
                   <input
                     type="number"
                     required
@@ -517,21 +698,21 @@ export default function App() {
                     placeholder="15000"
                     value={quickAmount}
                     onChange={(e) => setQuickAmount(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-bold text-sm text-white"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 font-bold text-sm text-white placeholder-slate-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-300 block mb-1.5">Método de Pagamento</label>
+                <label className="font-bold text-slate-200 block mb-1.5">Método de Pagamento</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setQuickMethod('GPO')}
                     className={`p-2.5 rounded-lg border flex items-center justify-between transition-all ${
                       quickMethod === 'GPO'
-                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 font-semibold'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold shadow-xs'
+                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -545,8 +726,8 @@ export default function App() {
                     onClick={() => setQuickMethod('GPR')}
                     className={`p-2.5 rounded-lg border flex items-center justify-between transition-all ${
                       quickMethod === 'GPR'
-                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 font-semibold'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-bold shadow-xs'
+                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -559,38 +740,38 @@ export default function App() {
 
               {quickMethod === 'GPO' && (
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Telemóvel MCX Express *</label>
+                  <label className="font-bold text-slate-200 block mb-1">Telemóvel MCX Express *</label>
                   <input
                     type="tel"
                     required
                     placeholder="923456789"
                     value={quickPhone}
                     onChange={(e) => setQuickPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                    className="w-full px-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 text-white font-medium placeholder-slate-400"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">O cliente receberá uma notificação push no telemóvel.</p>
+                  <p className="text-[11px] text-slate-300 mt-1">O cliente receberá uma notificação push no telemóvel com pedido de PIN.</p>
                 </div>
               )}
 
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Nome do Cliente (Opcional)</label>
+                <label className="font-bold text-slate-200 block mb-1">Nome do Cliente (Opcional)</label>
                 <input
                   type="text"
                   placeholder="Nome do cliente"
                   value={quickCustomerName}
                   onChange={(e) => setQuickCustomerName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 text-white font-medium placeholder-slate-400"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-slate-300 block mb-1">Descrição do Pagamento</label>
+                <label className="font-bold text-slate-200 block mb-1">Descrição do Pagamento</label>
                 <input
                   type="text"
                   placeholder="Ex: Fatura 2026/01"
                   value={quickDesc}
                   onChange={(e) => setQuickDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 text-white font-medium placeholder-slate-400"
                 />
               </div>
 
@@ -616,6 +797,25 @@ export default function App() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Checkout Customizer Modal for Merchants */}
+      {customizingLink && (
+        <CheckoutCustomizerModal
+          item={customizingLink}
+          isOpen={true}
+          onClose={() => setCustomizingLink(null)}
+          onSave={async (customization) => {
+            try {
+              await api.updateLink(customizingLink.id, { customization });
+              showToast('Checkout Personalizado', 'O design e gatilhos de conversão foram salvos com sucesso.');
+              await loadData();
+              setCustomizingLink(null);
+            } catch (err: any) {
+              alert(err.message || 'Erro ao salvar personalização');
+            }
+          }}
+        />
       )}
 
       {/* Profile Edit Modal */}

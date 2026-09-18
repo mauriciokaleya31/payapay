@@ -206,16 +206,81 @@ class MemoryAndFileStore {
       const userCharges = this.data.charges.filter((c) => c.userId === safe.id || (c.appId && appIds.has(c.appId)));
       const paidCharges = userCharges.filter((c) => c.status === 'paid');
       const salesVolume = paidCharges.reduce((sum, c) => sum + c.amount, 0);
+      const userProducts = (this.data.products || []).filter((p) => p.userId === safe.id || (!p.userId && safe.role === 'super_admin'));
+      const userLinks = (this.data.links || []).filter((l) => l.userId === safe.id || (!l.userId && safe.role === 'super_admin'));
 
       return {
         ...safe,
+        kycStatus: safe.kycStatus || (safe.role === 'merchant' ? 'pending' : (safe.role === 'super_admin' ? 'verified' : 'not_submitted')),
         stats: {
           totalApps: userApps.length,
           totalCharges: userCharges.length,
           totalSalesVolume: salesVolume,
+          totalProducts: userProducts.length,
+          totalLinks: userLinks.length,
         },
       };
     });
+  }
+
+  getOrCreateCustomerAccount(
+    email: string,
+    name?: string,
+    phone?: string
+  ): { user: Omit<AdminUser, 'passwordHash' | 'passwordSalt'>; temporaryPassword?: string; isNew: boolean } {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      throw new Error('Email é obrigatório para registo de conta de cliente');
+    }
+
+    const existing = this.data.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      const { passwordHash, passwordSalt, ...safe } = existing;
+      return { user: safe, isNew: false };
+    }
+
+    const randomDigits = Math.floor(100000 + Math.random() * 900000);
+    const temporaryPassword = `Cliente#${randomDigits}`;
+    const { hash, salt } = createAdminPasswordHash(temporaryPassword);
+
+    const newUser: AdminUser = {
+      id: `usr_cust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      email: cleanEmail,
+      name: name || cleanEmail.split('@')[0],
+      phone: phone || '',
+      role: 'customer',
+      status: 'active',
+      passwordHash: hash,
+      passwordSalt: salt,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    this.data.users.push(newUser);
+    this.persistToDisk();
+
+    this.addLog({
+      type: 'webhook_received',
+      title: `Conta de Cliente Criada Automaticamente: ${cleanEmail}`,
+      details: `Credenciais geradas e enviadas por e-mail para ${cleanEmail}. Palavra-passe temporária: ${temporaryPassword}`,
+      endpoint: '/api/v1/customer/auto-register',
+      statusCode: 200,
+      success: true,
+    });
+
+    const { passwordHash, passwordSalt, ...safe } = newUser;
+    return { user: safe, temporaryPassword, isNew: true };
+  }
+
+  getCustomerPurchases(emailOrUserId: string): Charge[] {
+    const q = emailOrUserId.trim().toLowerCase();
+    return this.data.charges
+      .filter(
+        (c) =>
+          (c.customerEmail && c.customerEmail.toLowerCase() === q) ||
+          c.userId === emailOrUserId
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   // --- Sessions ---

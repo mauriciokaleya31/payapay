@@ -84,6 +84,7 @@ export const api = {
     password: string;
     phone?: string;
     companyName?: string;
+    role?: 'merchant' | 'customer';
   }): Promise<AuthResponse & { app?: ClientApp }> => {
     const res = await fetch('/api/v1/auth/register', {
       method: 'POST',
@@ -257,6 +258,13 @@ export const api = {
     return data.charge;
   },
 
+  getCustomerPurchases: async (email?: string): Promise<Charge[]> => {
+    const url = email ? `/api/v1/customer/purchases?email=${encodeURIComponent(email)}` : `/api/v1/customer/purchases`;
+    const res = await handleResponse(await fetch(url, { headers: getHeaders() }));
+    const data = await res.json();
+    return data.purchases || [];
+  },
+
   createCharge: async (payload: {
     amount: number;
     method: 'GPO' | 'GPR';
@@ -318,6 +326,19 @@ export const api = {
     );
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erro ao criar link');
+    return data.link;
+  },
+
+  updateLink: async (id: string, payload: Partial<PaymentLink>): Promise<PaymentLink> => {
+    const res = await handleResponse(
+      await fetch(`/api/v1/links/${id}`, {
+        method: 'PUT',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao atualizar link');
     return data.link;
   },
 

@@ -28,6 +28,14 @@ const tabTitles: Record<string, { title: string; subtitle: string }> = {
     title: 'Visão Geral do Gateway',
     subtitle: 'Métricas financeiras, volume em Kwanzas e taxas de conversão',
   },
+  sellers: {
+    title: 'Gestão de Vendedores & Verificação KYC',
+    subtitle: 'Aprovação de documentos de identidade, taxas personalizadas e auditoria de vendas',
+  },
+  users: {
+    title: 'Utilizadores & Desenvolvedores',
+    subtitle: 'Gestão de contas, atribuição de perfis e taxas de comissão da plataforma',
+  },
   transactions: {
     title: 'Gestão de Transações',
     subtitle: 'Histórico de cobranças Multicaixa Express (GPO) e Referências (GPR)',
@@ -37,8 +45,16 @@ const tabTitles: Record<string, { title: string; subtitle: string }> = {
     subtitle: 'Crie e partilhe links diretos de checkout sem precisar de código',
   },
   store: {
-    title: 'Catálogo de Produtos & Loja',
-    subtitle: 'Gestão de itens com links e cobrança express integrados',
+    title: 'Catálogo de Produtos & Infoprodutos',
+    subtitle: 'Gestão de infoprodutos, arquivos para download e links integrados',
+  },
+  customer_portal: {
+    title: 'Portal do Cliente',
+    subtitle: 'Histórico de compras, recibos fiscais e downloads de infoprodutos',
+  },
+  developer_portal: {
+    title: 'Portal do Desenvolvedor & Vendedor',
+    subtitle: 'Simulações de API, levantamentos bancários e credenciais',
   },
   apps: {
     title: 'Aplicações & Credenciais de Clientes',
@@ -51,6 +67,10 @@ const tabTitles: Record<string, { title: string; subtitle: string }> = {
   logs: {
     title: 'Auditoria & Logs de Segurança',
     subtitle: 'Rastreamento de requisições, callbacks de webhooks e validações HMAC',
+  },
+  landing: {
+    title: 'Página Inicial & Vendas de Infoprodutos',
+    subtitle: 'Pré-visualização da landing page comercial do Pay Yetux Angola',
   },
 };
 

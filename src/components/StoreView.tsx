@@ -223,20 +223,20 @@ export const StoreView: React.FC<StoreViewProps> = ({
 
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Nome do Produto *</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Nome do Produto *</label>
                 <input
                   type="text"
                   required
                   placeholder="Ex: Livro Digital, Acesso Plataforma, Teclado Mecânico"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Preço (AOA) *</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Preço (AOA) *</label>
                   <input
                     type="number"
                     required
@@ -244,41 +244,41 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     placeholder="15000"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white font-bold"
+                    className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-bold placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Categoria</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">Categoria</label>
                   <input
                     type="text"
                     placeholder="Cursos, Hardware, Software"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                    className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Descrição</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Descrição</label>
                 <textarea
                   rows={2}
                   placeholder="Detalhes, especificações e condições..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">URL da Foto</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">URL da Foto</label>
                 <input
                   type="url"
                   placeholder="https://images.unsplash.com/..."
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                 />
               </div>
 

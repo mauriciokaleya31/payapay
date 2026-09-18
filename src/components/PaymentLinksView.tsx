@@ -12,6 +12,8 @@ import {
   DollarSign,
   ShoppingBag,
   Sparkles,
+  Palette,
+  FileDown,
   X
 } from 'lucide-react';
 import { PaymentLink, PaymentMethodType } from '../types';
@@ -21,6 +23,7 @@ interface PaymentLinksViewProps {
   onCreateLink: (payload: Partial<PaymentLink>) => Promise<void>;
   onDeleteLink: (id: string) => Promise<void>;
   onOpenCheckout: (link: PaymentLink) => void;
+  onCustomizeCheckout?: (link: PaymentLink) => void;
 }
 
 export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
@@ -28,6 +31,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   onCreateLink,
   onDeleteLink,
   onOpenCheckout,
+  onCustomizeCheckout,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -37,6 +41,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [digitalFileUrl, setDigitalFileUrl] = useState('');
   const [allowedMethods, setAllowedMethods] = useState<PaymentMethodType[]>(['GPO', 'GPR']);
   const [requiresName, setRequiresName] = useState(true);
   const [requiresEmail, setRequiresEmail] = useState(true);
@@ -53,7 +58,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
 
   const handleCopyLink = (link: PaymentLink) => {
     const origin = window.location.origin;
-    const url = `${origin}/pay/${link.slug}`;
+    const url = `${origin}/?checkout=${link.slug}`;
     navigator.clipboard.writeText(url);
     setCopiedLinkId(link.id);
     setTimeout(() => setCopiedLinkId(null), 2500);
@@ -70,6 +75,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
         description,
         amount: Number(amount),
         imageUrl: imageUrl || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&auto=format&fit=crop&q=80',
+        digitalFileUrl: digitalFileUrl.trim() || undefined,
         allowedMethods,
         requiresCustomerName: requiresName,
         requiresCustomerEmail: requiresEmail,
@@ -87,6 +93,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
     setDescription('');
     setAmount('');
     setImageUrl('');
+    setDigitalFileUrl('');
     setAllowedMethods(['GPO', 'GPR']);
   };
 
@@ -104,14 +111,16 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Links de Pagamento</h2>
-          <p className="text-xs text-slate-500">Crie links partilháveis para receber pagamentos via WhatsApp, Redes Sociais ou Email</p>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Links de Pagamento & Checkout</h2>
+          <p className="text-xs text-slate-500">
+            Crie links partilháveis para vender os seus infoprodutos via Multicaixa Express e Referência Bancária
+          </p>
         </div>
 
         <button
           id="btn-criar-link"
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 transition-all"
+          className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>Criar Novo Link</span>
@@ -136,6 +145,13 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                 <div className="absolute top-3 right-3 bg-slate-950/80 backdrop-blur-xs text-white px-3 py-1 rounded-full text-xs font-bold">
                   {formatKz(link.amount)}
                 </div>
+
+                {link.digitalFileUrl && (
+                  <div className="absolute top-3 left-3 bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                    <FileDown className="w-3 h-3" />
+                    Infoproduto
+                  </div>
+                )}
               </div>
 
               {/* Content */}
@@ -148,7 +164,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                 {/* Methods badges */}
                 <div className="flex items-center gap-1.5 pt-1">
                   {link.allowedMethods.includes('GPO') && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <Smartphone className="w-3 h-3 mr-1" />
                       MCX Express
                     </span>
@@ -164,12 +180,12 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                 {/* Link URL pill */}
                 <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
                   <span className="font-mono text-slate-600 truncate mr-2">
-                    /pay/{link.slug}
+                    ?checkout={link.slug}
                   </span>
                   <button
                     onClick={() => handleCopyLink(link)}
                     className="p-1.5 hover:bg-slate-200 text-slate-600 rounded transition-colors"
-                    title="Copiar URL"
+                    title="Copiar Link Direto"
                   >
                     {copiedLinkId === link.id ? (
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -182,20 +198,30 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
             </div>
 
             {/* Footer Stats & Actions */}
-            <div className="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between">
+            <div className="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
               <div className="text-xs text-slate-500">
                 <span>Vendas: <strong className="text-slate-800">{link.totalSalesCount}</strong></span>
                 <span className="mx-1.5">•</span>
                 <span>Total: <strong className="text-emerald-700 font-semibold">{formatKz(link.totalSalesAmount)}</strong></span>
               </div>
 
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1.5">
+                {onCustomizeCheckout && (
+                  <button
+                    onClick={() => onCustomizeCheckout(link)}
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 border border-slate-300"
+                    title="Personalizar visual do checkout"
+                  >
+                    <Palette className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Personalizar</span>
+                  </button>
+                )}
                 <button
                   onClick={() => onOpenCheckout(link)}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors flex items-center space-x-1"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors flex items-center space-x-1"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>Abrir Checkout</span>
+                  <span>Abrir</span>
                 </button>
                 <button
                   onClick={() => onDeleteLink(link.id)}
@@ -213,11 +239,11 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
       {/* Creation Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Novo Link de Pagamento</h3>
-                <p className="text-xs text-slate-500">Gere um checkout seguro para qualquer produto ou serviço</p>
+                <h3 className="text-lg font-bold text-slate-900">Novo Link de Infoproduto / Checkout</h3>
+                <p className="text-xs text-slate-500">Gere um link seguro com entrega digital para os seus compradores</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
@@ -226,52 +252,66 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
 
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Nome do Produto ou Serviço *</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Nome do Infoproduto ou Serviço *</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Consultoria Tech, Inscrição Workshop, Licença de Software"
+                  placeholder="Ex: E-book de Finanças Pessoais, Curso de Marketing, Mentoria VIP"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Preço em Kwanzas (AOA) *</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Preço em Kwanzas (AOA) *</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">Kz</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Kz</span>
                   <input
                     type="number"
                     required
                     min="100"
-                    placeholder="25000"
+                    placeholder="15000"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white font-bold"
+                    className="w-full pl-9 pr-3 py-2.5 text-xs bg-white text-slate-950 font-bold placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Descrição</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">Descrição</label>
                 <textarea
                   rows={2}
-                  placeholder="Breve resumo do que o cliente está a adquirir..."
+                  placeholder="Breve resumo do que o comprador vai receber..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">URL da Imagem (Opcional)</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1">URL do Arquivo Digital / Infoproduto (Download Automático)</label>
+                <input
+                  type="url"
+                  placeholder="https://meus-arquivos.com/ebook-seguro.pdf ou link do Drive"
+                  value={digitalFileUrl}
+                  onChange={(e) => setDigitalFileUrl(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
+                />
+                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  O cliente recebe este link após o pagamento aprovado no Multicaixa.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">URL da Imagem de Capa (Opcional)</label>
                 <input
                   type="url"
                   placeholder="https://images.unsplash.com/..."
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-3 py-2.5 text-xs bg-white text-slate-950 font-medium placeholder:text-slate-400 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                 />
               </div>
 
@@ -283,15 +323,15 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                     onClick={() => toggleMethod('GPO')}
                     className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-medium transition-all ${
                       allowedMethods.includes('GPO')
-                        ? 'bg-blue-50 border-blue-500 text-blue-900 font-semibold'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-semibold'
                         : 'bg-slate-50 border-slate-200 text-slate-600'
                     }`}
                   >
                     <div className="flex items-center space-x-2">
-                      <Smartphone className="w-4 h-4 text-blue-600" />
+                      <Smartphone className="w-4 h-4 text-emerald-600" />
                       <span>Multicaixa Express</span>
                     </div>
-                    {allowedMethods.includes('GPO') && <Check className="w-4 h-4 text-blue-600" />}
+                    {allowedMethods.includes('GPO') && <Check className="w-4 h-4 text-emerald-600" />}
                   </button>
 
                   <button
@@ -323,9 +363,9 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Gerando Link...' : 'Criar Link de Pagamento'}
+                  {isSubmitting ? 'A criar...' : 'Salvar Link'}
                 </button>
               </div>
             </form>

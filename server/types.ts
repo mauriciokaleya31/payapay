@@ -83,10 +83,40 @@ export interface Charge {
   providerRawResponse?: any;
 }
 
+export interface CheckoutTestimonial {
+  id?: string;
+  author: string;
+  role?: string;
+  comment: string;
+  rating: number;
+}
+
+export interface CheckoutCustomization {
+  brandName?: string;
+  brandColor?: string;
+  accentColor?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
+  headline?: string;
+  subheadline?: string;
+  buttonText?: string;
+  guaranteeBadge?: boolean;
+  guaranteeDays?: number;
+  guaranteeText?: string;
+  showCountdown?: boolean;
+  countdownMinutes?: number;
+  showTestimonials?: boolean;
+  testimonials?: CheckoutTestimonial[];
+  supportPhone?: string;
+  supportEmail?: string;
+  theme?: 'modern' | 'minimal' | 'dark';
+}
+
 export interface PaymentLink {
   id: string;
   slug: string; // url identifier
   appId?: string;
+  userId?: string;
   title: string;
   description?: string;
   amount: number;
@@ -102,11 +132,14 @@ export interface PaymentLink {
   totalSalesAmount: number;
   createdAt: string;
   productId?: string;
+  customization?: CheckoutCustomization;
+  digitalFileUrl?: string;
 }
 
 export interface Product {
   id: string;
   appId?: string;
+  userId?: string;
   name: string;
   description: string;
   price: number;
@@ -118,6 +151,10 @@ export interface Product {
   salesCount: number;
   createdAt: string;
   paymentLinkId?: string;
+  downloadUrl?: string;
+  downloadFileName?: string;
+  customization?: CheckoutCustomization;
+  digitalFileUrl?: string;
 }
 
 export interface AdminUser {
@@ -127,11 +164,16 @@ export interface AdminUser {
   phone?: string;
   avatarUrl?: string;
   companyName?: string;
-  role: 'super_admin' | 'admin' | 'developer' | 'support';
+  role: 'super_admin' | 'admin' | 'developer' | 'merchant' | 'support' | 'customer';
   passwordHash: string;
   passwordSalt: string;
   status: 'active' | 'inactive' | 'blocked';
   platformFeePercentage?: number; // default 20%
+  kycStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
+  kycNotes?: string;
+  kycSubmittedAt?: string;
+  kycReviewedAt?: string;
+  defaultCheckoutCustomization?: CheckoutCustomization;
   createdAt: string;
   lastLoginAt?: string;
   lastLoginIp?: string;
@@ -139,6 +181,8 @@ export interface AdminUser {
     totalApps: number;
     totalCharges: number;
     totalSalesVolume: number;
+    totalProducts?: number;
+    totalLinks?: number;
   };
 }
 

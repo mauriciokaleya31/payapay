@@ -14,6 +14,9 @@ import {
   Building, 
   UserPlus, 
   LogIn,
+  ShoppingBag,
+  UserCheck,
+  ArrowLeft,
   Key
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -21,17 +24,26 @@ import { AdminUser } from '../types';
 
 interface LoginViewProps {
   onLoginSuccess: (user: AdminUser) => void;
+  onBackToLanding?: () => void;
+  initialTab?: 'login' | 'register';
+  initialRole?: 'merchant' | 'customer';
 }
 
-export function LoginView({ onLoginSuccess }: LoginViewProps) {
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+export function LoginView({
+  onLoginSuccess,
+  onBackToLanding,
+  initialTab = 'login',
+  initialRole = 'merchant',
+}: LoginViewProps) {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
   
   // Login form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  // Register form state
+  // Register form state: only 'merchant' (vendedor) or 'customer' (cliente) allowed
+  const [regRole, setRegRole] = useState<'merchant' | 'customer'>(initialRole);
   const [regName, setRegName] = useState('');
   const [regCompanyName, setRegCompanyName] = useState('');
   const [regPhone, setRegPhone] = useState('');
@@ -91,13 +103,18 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
         phone: regPhone.trim() || undefined,
         email: regEmail.trim(),
         password: regPassword,
+        role: regRole,
       });
 
       if (res.success && res.user) {
-        setSuccessMessage('Conta criada com sucesso! A preparar o seu ambiente de desenvolvedor...');
+        const welcomeText =
+          regRole === 'merchant'
+            ? 'Conta de vendedor criada! Seu perfil KYC foi inicializado e já pode criar links e personalizar o checkout.'
+            : 'Conta de cliente criada com sucesso! Aceda aos seus infoprodutos adquiridos.';
+        setSuccessMessage(welcomeText);
         setTimeout(() => {
           onLoginSuccess(res.user);
-        }, 600);
+        }, 800);
       } else {
         setErrorMessage(res.error || 'Falha ao criar conta.');
       }
@@ -113,6 +130,19 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
       {/* Background Subtle Gradient Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
       
+      {/* Back to landing page button */}
+      {onBackToLanding && (
+        <div className="absolute top-6 left-6 z-20">
+          <button
+            onClick={onBackToLanding}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Página Inicial
+          </button>
+        </div>
+      )}
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex items-center justify-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-900/30 ring-1 ring-emerald-400/30">
@@ -122,10 +152,10 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               Pay Yetux
               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
-                Gateway & API Angola
+                Infoprodutos & Pagamentos
               </span>
             </h1>
-            <p className="text-xs text-slate-400">Plataforma de Pagamentos & Portal de Desenvolvedores</p>
+            <p className="text-xs text-slate-400">Vendas Digitais e Pagamentos em Angola</p>
           </div>
         </div>
 
@@ -161,7 +191,7 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
-            Criar Conta Dev
+            Criar Conta
           </button>
         </div>
       </div>
@@ -189,14 +219,14 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
           )}
 
           {activeTab === 'login' ? (
-            /* Login Form */
+            /* ================= LOGIN FORM ================= */
             <form className="space-y-5" onSubmit={handleLoginSubmit}>
               <div>
-                <label htmlFor="login-email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label htmlFor="login-email" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
                   Endereço de E-mail
                 </label>
                 <div className="mt-2 relative rounded-lg shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
                     <Mail className="h-4 w-4" />
                   </div>
                   <input
@@ -207,20 +237,17 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="exemplo@dominio.ao"
-                    className="block w-full pl-10 pr-3 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+                    className="block w-full pl-10 pr-3 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between">
-                  <label htmlFor="login-password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Palavra-passe
-                  </label>
-                  <span className="text-[11px] text-slate-500">Criptografia PBKDF2</span>
-                </div>
+                <label htmlFor="login-password" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
+                  Palavra-passe
+                </label>
                 <div className="mt-2 relative rounded-lg shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
                     <Lock className="h-4 w-4" />
                   </div>
                   <input
@@ -231,12 +258,12 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="block w-full pl-10 pr-10 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+                    className="block w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-100 transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -246,10 +273,10 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
               <div className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-slate-400">Ambiente Seguro (HTTPS)</span>
+                  <span className="text-xs text-slate-300">Ambiente Seguro (HTTPS)</span>
                 </div>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  Super Admin & Dev
+                <span className="text-[11px] text-slate-400 font-mono">
+                  EMIS Nuvex Angola
                 </span>
               </div>
 
@@ -267,7 +294,7 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                     </>
                   ) : (
                     <>
-                      Entrar no Painel de Controlo
+                      Entrar na Conta
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -275,14 +302,60 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
             </form>
           ) : (
-            /* Register Form */
+            /* ================= REGISTER FORM (Vendor vs Customer Only) ================= */
             <form className="space-y-4" onSubmit={handleRegisterSubmit}>
+              {/* Role Selection: Merchant vs Customer */}
               <div>
-                <label htmlFor="reg-name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-200 mb-2">
+                  Tipo de Conta a Criar
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRegRole('merchant')}
+                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      regRole === 'merchant'
+                        ? 'bg-emerald-500/15 border-emerald-500 text-white ring-1 ring-emerald-500'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <ShoppingBag className={`w-4 h-4 ${regRole === 'merchant' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      {regRole === 'merchant' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">Vendedor</p>
+                      <p className="text-[10px] text-slate-400">Vender Infoprodutos</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRegRole('customer')}
+                    className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      regRole === 'customer'
+                        ? 'bg-emerald-500/15 border-emerald-500 text-white ring-1 ring-emerald-500'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <UserCheck className={`w-4 h-4 ${regRole === 'customer' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      {regRole === 'customer' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">Cliente</p>
+                      <p className="text-[10px] text-slate-400">Acessar Compras</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="reg-name" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
                   Nome Completo
                 </label>
-                <div className="mt-1.5 relative rounded-lg shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="mt-1 relative rounded-lg shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
                     <User className="h-4 w-4" />
                   </div>
                   <input
@@ -292,37 +365,39 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     placeholder="Seu nome completo"
-                    className="block w-full pl-10 pr-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-colors"
                   />
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="reg-company" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                  Empresa ou Projeto (Opcional)
-                </label>
-                <div className="mt-1.5 relative rounded-lg shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Building className="h-4 w-4" />
+              {regRole === 'merchant' && (
+                <div>
+                  <label htmlFor="reg-company" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
+                    Nome da Sua Loja / Marca de Infoprodutos
+                  </label>
+                  <div className="mt-1 relative rounded-lg shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
+                      <Building className="h-4 w-4" />
+                    </div>
+                    <input
+                      id="reg-company"
+                      type="text"
+                      value={regCompanyName}
+                      onChange={(e) => setRegCompanyName(e.target.value)}
+                      placeholder="Ex: Academia Digital Angola"
+                      className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-colors"
+                    />
                   </div>
-                  <input
-                    id="reg-company"
-                    type="text"
-                    value={regCompanyName}
-                    onChange={(e) => setRegCompanyName(e.target.value)}
-                    placeholder="Ex: Minha Loja Virtual"
-                    className="block w-full pl-10 pr-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
-                  />
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="reg-email" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <label htmlFor="reg-email" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
                     E-mail
                   </label>
-                  <div className="mt-1.5 relative rounded-lg shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="mt-1 relative rounded-lg shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
                       <Mail className="h-4 w-4" />
                     </div>
                     <input
@@ -331,18 +406,18 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="dev@empresa.ao"
-                      className="block w-full pl-10 pr-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                      placeholder="email@dominio.ao"
+                      className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="reg-phone" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Telemóvel
+                  <label htmlFor="reg-phone" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
+                    Telemóvel (Multicaixa)
                   </label>
-                  <div className="mt-1.5 relative rounded-lg shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="mt-1 relative rounded-lg shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
                       <Phone className="h-4 w-4" />
                     </div>
                     <input
@@ -351,18 +426,18 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
                       placeholder="923 000 000"
-                      className="block w-full pl-10 pr-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                      className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-colors"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label htmlFor="reg-password" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                <label htmlFor="reg-password" className="block text-xs font-bold uppercase tracking-wider text-slate-200">
                   Definir Palavra-passe
                 </label>
-                <div className="mt-1.5 relative rounded-lg shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="mt-1 relative rounded-lg shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300">
                     <Lock className="h-4 w-4" />
                   </div>
                   <input
@@ -373,27 +448,16 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
                     placeholder="Mínimo de 6 caracteres"
-                    className="block w-full pl-10 pr-10 py-2 bg-slate-950/80 border border-slate-700/80 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                    className="block w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowRegPassword(!showRegPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-100"
                   >
                     {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-              </div>
-
-              {/* Developer fee info banner */}
-              <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 text-xs">
-                <div className="flex items-center gap-1.5 font-semibold text-emerald-200 mb-1">
-                  <Key className="w-3.5 h-3.5 text-emerald-400" />
-                  Geração Imediata de Chaves de API
-                </div>
-                <p className="text-[11px] text-emerald-300/80">
-                  Ao criar a conta, recebe automaticamente as chaves de API para Multicaixa Express (GPO) e Referência Bancária (GPR). A comissão da plataforma é de 20% sobre as vendas liquidadas.
-                </p>
               </div>
 
               <div>
@@ -406,11 +470,11 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
                   {isLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      A criar conta e chaves de API...
+                      A criar a sua conta...
                     </>
                   ) : (
                     <>
-                      Criar Conta & Aceder à API
+                      {regRole === 'merchant' ? 'Criar Conta de Vendedor' : 'Criar Conta de Cliente'}
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -418,34 +482,6 @@ export function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
             </form>
           )}
-
-          {/* Security & Confidentiality Notice */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
-            <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800/80">
-              <div className="flex items-center justify-between text-xs text-slate-300 font-medium mb-1.5">
-                <span className="flex items-center gap-1.5 text-slate-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Credenciais Protegidas e Encriptadas
-                </span>
-                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
-                  TAXA 20%
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Plataforma em conformidade com o sistema financeiro angolano (EMIS, Multicaixa Express e Nuvex Pagamentos).
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Nuvex API Conectada
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Cpu className="w-3 h-3 text-teal-400" /> Multicaixa Express & GPR
-            </span>
-          </div>
         </div>
       </div>
     </div>

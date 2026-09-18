@@ -192,7 +192,7 @@ export function ProfileModal({ user, isOpen, onClose, onUserUpdated }: ProfileMo
                 Nome Completo
               </label>
               <div className="relative rounded-lg">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-300">
                   <User className="h-4 w-4" />
                 </div>
                 <input
@@ -200,17 +200,17 @@ export function ProfileModal({ user, isOpen, onClose, onUserUpdated }: ProfileMo
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg text-xs font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
                 E-mail da Conta
               </label>
               <div className="relative rounded-lg">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-300">
                   <Mail className="h-4 w-4" />
                 </div>
                 <input
@@ -218,17 +218,17 @@ export function ProfileModal({ user, isOpen, onClose, onUserUpdated }: ProfileMo
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg text-xs font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
                 Contacto Telefónico
               </label>
               <div className="relative rounded-lg">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-300">
                   <Phone className="h-4 w-4" />
                 </div>
                 <input
@@ -236,17 +236,17 @@ export function ProfileModal({ user, isOpen, onClose, onUserUpdated }: ProfileMo
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+244 923 000 000"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg text-xs font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-200 mb-1.5">
                 Empresa / Nome do Projeto
               </label>
               <div className="relative rounded-lg">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-300">
                   <Building className="h-4 w-4" />
                 </div>
                 <input
@@ -254,7 +254,7 @@ export function ProfileModal({ user, isOpen, onClose, onUserUpdated }: ProfileMo
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Ex: Minha Empresa Lda"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-950/80 border border-slate-700 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-600 rounded-lg text-xs font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
             </div>

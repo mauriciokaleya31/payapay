@@ -22,6 +22,7 @@ interface CustomRequest extends Request {
   rawBody?: string;
   clientApp?: ClientApp;
   adminSession?: AuthSession;
+  adminUser?: AdminUser;
 }
 
 const app = express();
@@ -238,7 +239,7 @@ app.post('/api/v1/auth/logout', (req: Request, res: Response) => {
 // ----------------------------------------------------
 app.post('/api/v1/auth/register', (req: Request, res: Response) => {
   try {
-    const { name, email, password, phone, companyName } = req.body;
+    const { name, email, password, phone, companyName, role } = req.body;
     const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
 
     if (!name || !email || !password) {
@@ -255,6 +256,18 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
       });
     }
 
+    // Role validation: Public registration only allows 'merchant' (Vendedor de Infoprodutos) or 'customer' (Cliente Comprador)
+    const validRoles = ['merchant', 'customer'];
+    const chosenRole = role && validRoles.includes(role) ? role : 'merchant';
+
+    // If an unauthorized user attempts to create admin, super_admin or developer via public endpoint
+    if (role && !validRoles.includes(role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Criação de administradores e programadores só é permitida através do Painel de Administração.',
+      });
+    }
+
     const cleanEmail = email.trim().toLowerCase();
     const existing = store.getUserByEmail(cleanEmail);
     if (existing) {
@@ -265,20 +278,23 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
     }
 
     const { hash, salt } = createAdminPasswordHash(password);
-    const userId = `usr_dev_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    const userId = `usr_${chosenRole === 'merchant' ? 'merch' : 'cust'}_${Date.now()}_${randomBytes(4).toString('hex')}`;
     const cleanName = name.trim();
+
+    const isMerchant = chosenRole === 'merchant';
 
     const newUser: AdminUser = {
       id: userId,
       email: cleanEmail,
       name: cleanName,
       phone: phone ? phone.trim() : undefined,
-      companyName: companyName ? companyName.trim() : `${cleanName} Soluções`,
-      role: 'developer',
+      companyName: companyName ? companyName.trim() : (isMerchant ? `${cleanName} Infoprodutos` : undefined),
+      role: chosenRole as any,
       passwordHash: hash,
       passwordSalt: salt,
       status: 'active',
-      platformFeePercentage: 20, // 20% platform fee
+      platformFeePercentage: isMerchant ? 10 : 0, // Default 10% for vendors, editable by Admin
+      kycStatus: isMerchant ? 'pending' : 'not_submitted',
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
       lastLoginIp: clientIp,
@@ -286,26 +302,29 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
 
     store.saveUser(newUser);
 
-    // Auto-generate primary developer app with API keys and webhook
-    const appId = `app_dev_${Date.now()}_${randomBytes(4).toString('hex')}`;
-    const randHex = (n = 16) => randomBytes(n).toString('hex');
-    const newApp: ClientApp = {
-      id: appId,
-      name: companyName ? `${companyName} App` : `Projeto Principal ${cleanName}`,
-      description: 'Projeto primário para integração de pagamentos e checkout com a API Pay Yetux.',
-      userId: newUser.id,
-      userEmail: newUser.email,
-      apiKeyLive: `nvx_live_${randHex(12)}`,
-      secretKeyLive: `gw_sec_live_${randHex(16)}`,
-      apiKeyTest: `py_test_${randHex(12)}`,
-      secretKeyTest: `gw_sec_test_${randHex(16)}`,
-      webhookUrl: '',
-      webhookSecret: `whsec_${randHex(16)}`,
-      webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    };
-    store.saveApp(newApp);
+    // Auto-generate primary developer/merchant app with API keys and webhook
+    let newApp: ClientApp | undefined;
+    if (isMerchant) {
+      const appId = `app_m_${Date.now()}_${randomBytes(4).toString('hex')}`;
+      const randHex = (n = 16) => randomBytes(n).toString('hex');
+      newApp = {
+        id: appId,
+        name: companyName ? `${companyName} App` : `Loja de Infoprodutos ${cleanName}`,
+        description: 'Integração de checkout de infoprodutos e pagamentos Multicaixa.',
+        userId: newUser.id,
+        userEmail: newUser.email,
+        apiKeyLive: `nvx_live_${randHex(12)}`,
+        secretKeyLive: `gw_sec_live_${randHex(16)}`,
+        apiKeyTest: `py_test_${randHex(12)}`,
+        secretKeyTest: `gw_sec_test_${randHex(16)}`,
+        webhookUrl: '',
+        webhookSecret: `whsec_${randHex(16)}`,
+        webhookEvents: ['charge.paid', 'charge.failed', 'charge.pending'],
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      store.saveApp(newApp);
+    }
 
     // Create session
     const userAgent = req.headers['user-agent'];
@@ -313,8 +332,8 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
 
     store.addLog({
       type: 'api_request',
-      title: `Novo Desenvolvedor Registado: ${newUser.email}`,
-      details: `Conta de desenvolvedor criada com sucesso. Projeto e chaves de API iniciais geradas.`,
+      title: `Novo ${isMerchant ? 'Vendedor de Infoprodutos' : 'Cliente'} Registado: ${newUser.email}`,
+      details: `Conta ${chosenRole} criada com sucesso. Status KYC: ${newUser.kycStatus}.`,
       endpoint: '/api/v1/auth/register',
       statusCode: 201,
       success: true,
@@ -330,6 +349,7 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
         phone: newUser.phone,
         companyName: newUser.companyName,
         role: newUser.role,
+        kycStatus: newUser.kycStatus,
         platformFeePercentage: newUser.platformFeePercentage,
         lastLoginAt: newUser.lastLoginAt,
       },
@@ -523,13 +543,18 @@ app.patch('/api/v1/users/:id', requireAdminAuth, (req: CustomRequest, res: Respo
       return res.status(404).json({ success: false, error: 'Utilizador não encontrado.' });
     }
 
-    const { name, phone, companyName, role, status, platformFeePercentage, newPassword } = req.body;
+    const { name, phone, companyName, role, status, platformFeePercentage, newPassword, kycStatus, kycNotes } = req.body;
     if (name) user.name = name.trim();
     if (phone !== undefined) user.phone = phone.trim();
     if (companyName !== undefined) user.companyName = companyName.trim();
     if (role && user.role !== 'super_admin') user.role = role;
     if (status && user.role !== 'super_admin') user.status = status;
     if (platformFeePercentage !== undefined) user.platformFeePercentage = Number(platformFeePercentage);
+    if (kycStatus) {
+      user.kycStatus = kycStatus;
+      user.kycReviewedAt = new Date().toISOString();
+    }
+    if (kycNotes !== undefined) user.kycNotes = kycNotes;
 
     if (newPassword && newPassword.length >= 6) {
       const { hash, salt } = createAdminPasswordHash(newPassword);
@@ -635,10 +660,74 @@ app.get('/api/v1/charges', requireAdminAuth, (req: CustomRequest, res: Response)
 // Get charge by ID or merchant transaction ID
 app.get('/api/v1/charges/:id', async (req, res) => {
   try {
-    const charge = store.getChargeById(req.params.id);
+    let charge = store.getChargeById(req.params.id);
     if (!charge) {
       return res.status(404).json({ success: false, error: 'Transação não encontrada' });
     }
+
+    // Active Check: If charge is still pending, proactively query provider/Nuvex!
+    if (charge.status === 'pending') {
+      try {
+        const providerId = charge.providerId || 'nuvex';
+        const provider = providerManager.getProvider(providerId);
+        const config = providerManager.getConfig(providerId);
+
+        if (provider) {
+          const queryId = charge.providerChargeId || charge.merchantTransactionId;
+          const statusResult = await provider.checkStatus(queryId, config);
+
+          if (statusResult.status === 'paid') {
+            charge.status = 'paid';
+            charge.paidAt = statusResult.paidAt || new Date().toISOString();
+
+            // Auto-create customer account if email provided
+            if (charge.customerEmail) {
+              const custAcc = store.getOrCreateCustomerAccount(
+                charge.customerEmail,
+                charge.customerName,
+                charge.phoneNumber
+              );
+              (charge as any).customerAccount = custAcc;
+            }
+
+            // Update stats & sales counts
+            if (charge.paymentLinkId) {
+              const link = store.getLinkById(charge.paymentLinkId);
+              if (link) {
+                link.totalSalesCount += 1;
+                link.totalSalesAmount += charge.amount;
+                store.saveLink(link);
+              }
+            }
+
+            if (charge.productId) {
+              const prod = store.getProductById(charge.productId);
+              if (prod) {
+                prod.salesCount += 1;
+                if (prod.stock && prod.stock > 0) prod.stock -= 1;
+                store.saveProduct(prod);
+              }
+            }
+
+            store.saveCharge(charge);
+
+            if (charge.appId) {
+              const clientApp = store.getAppById(charge.appId);
+              if (clientApp) {
+                dispatchClientWebhook(charge, clientApp, 'charge.paid');
+              }
+            }
+          } else if (statusResult.status === 'failed') {
+            charge.status = 'failed';
+            charge.failedAt = new Date().toISOString();
+            store.saveCharge(charge);
+          }
+        }
+      } catch (err: any) {
+        console.warn('[Charges] Error polling provider status:', err.message);
+      }
+    }
+
     res.json({ success: true, charge });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -784,16 +873,17 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
   }
 });
 
-// Force sync / fallback query from provider (Protected)
-app.post('/api/v1/charges/:id/sync', requireAdminAuth, async (req, res) => {
+// Force sync / query live from provider (Accessible to checkout polling & admin)
+app.post('/api/v1/charges/:id/sync', async (req, res) => {
   try {
     const charge = store.getChargeById(req.params.id);
     if (!charge) {
       return res.status(404).json({ success: false, error: 'Cobrança não encontrada' });
     }
 
-    const provider = providerManager.getProvider(charge.providerId);
-    const config = providerManager.getConfig(charge.providerId);
+    const providerId = charge.providerId || 'nuvex';
+    const provider = providerManager.getProvider(providerId);
+    const config = providerManager.getConfig(providerId);
 
     if (provider) {
       const queryId = charge.providerChargeId || charge.merchantTransactionId;
@@ -804,6 +894,37 @@ app.post('/api/v1/charges/:id/sync', requireAdminAuth, async (req, res) => {
         if (statusResult.status === 'paid' && !charge.paidAt) {
           charge.paidAt = statusResult.paidAt || new Date().toISOString();
         }
+
+        if (statusResult.status === 'paid') {
+          // Auto-create customer account
+          if (charge.customerEmail) {
+            const custAcc = store.getOrCreateCustomerAccount(
+              charge.customerEmail,
+              charge.customerName,
+              charge.phoneNumber
+            );
+            (charge as any).customerAccount = custAcc;
+          }
+
+          if (charge.paymentLinkId) {
+            const link = store.getLinkById(charge.paymentLinkId);
+            if (link) {
+              link.totalSalesCount += 1;
+              link.totalSalesAmount += charge.amount;
+              store.saveLink(link);
+            }
+          }
+
+          if (charge.productId) {
+            const prod = store.getProductById(charge.productId);
+            if (prod) {
+              prod.salesCount += 1;
+              if (prod.stock && prod.stock > 0) prod.stock -= 1;
+              store.saveProduct(prod);
+            }
+          }
+        }
+
         store.saveCharge(charge);
 
         // Notify client application if registered
@@ -915,15 +1036,37 @@ app.post('/api/v1/webhooks/nuvex', async (req: CustomRequest, res: Response) => 
     return res.status(401).json({ error: 'Assinatura HMAC inválida' });
   }
 
-  const payload = req.body;
-  const chargeIdentifier = payload.id || payload.charge_id || payload.merchant_transaction_id;
-  const status = payload.status; // "paid", "failed", etc.
+  const payload = req.body || {};
+  const dataObj = payload.data || payload.charge || payload;
+  const eventType = String(payload.event || payload.type || '').toLowerCase();
+
+  const chargeIdentifier =
+    dataObj.id ||
+    dataObj.charge_id ||
+    dataObj.provider_charge_id ||
+    dataObj.merchant_transaction_id ||
+    payload.id ||
+    payload.merchant_transaction_id;
+
+  const rawStatus = String(
+    dataObj.status ||
+    dataObj.state ||
+    dataObj.payment_status ||
+    (eventType.includes('paid') || eventType.includes('success') ? 'paid' : '') ||
+    (eventType.includes('failed') ? 'failed' : '') ||
+    payload.status ||
+    ''
+  ).trim().toLowerCase();
+
+  const isPaid = ['paid', 'pago', 'completed', 'completo', 'approved', 'aprovado', 'success', 'sucesso'].includes(rawStatus);
+  const isFailed = ['failed', 'falhou', 'cancelled', 'cancelado', 'expired', 'expirado', 'rejected', 'rejeitado'].includes(rawStatus);
+  const status = isPaid ? 'paid' : isFailed ? 'failed' : 'pending';
 
   const existingCharge = chargeIdentifier ? store.getChargeById(chargeIdentifier) : undefined;
 
   store.addLog({
     type: 'webhook_received',
-    title: `Callback Nuvex: status="${status}" (${payload.method || 'GPO/GPR'})`,
+    title: `Callback Nuvex: status="${status}" (${payload.method || dataObj.method || 'GPO/GPR'})`,
     details: `Transação: ${chargeIdentifier} | Assinatura HMAC: ${isValid ? 'Válida' : 'Bypass modo dev'}`,
     endpoint: '/api/v1/webhooks/nuvex',
     statusCode: 200,
@@ -936,7 +1079,36 @@ app.post('/api/v1/webhooks/nuvex', async (req: CustomRequest, res: Response) => 
   if (existingCharge) {
     if (status === 'paid' && existingCharge.status !== 'paid') {
       existingCharge.status = 'paid';
-      existingCharge.paidAt = payload.paid_at || new Date().toISOString();
+      existingCharge.paidAt = dataObj.paid_at || payload.paid_at || new Date().toISOString();
+
+      // Auto-create customer account
+      if (existingCharge.customerEmail) {
+        const custAcc = store.getOrCreateCustomerAccount(
+          existingCharge.customerEmail,
+          existingCharge.customerName,
+          existingCharge.phoneNumber
+        );
+        (existingCharge as any).customerAccount = custAcc;
+      }
+
+      if (existingCharge.paymentLinkId) {
+        const link = store.getLinkById(existingCharge.paymentLinkId);
+        if (link) {
+          link.totalSalesCount += 1;
+          link.totalSalesAmount += existingCharge.amount;
+          store.saveLink(link);
+        }
+      }
+
+      if (existingCharge.productId) {
+        const prod = store.getProductById(existingCharge.productId);
+        if (prod) {
+          prod.salesCount += 1;
+          if (prod.stock && prod.stock > 0) prod.stock -= 1;
+          store.saveProduct(prod);
+        }
+      }
+
       store.saveCharge(existingCharge);
 
       // Forward webhook event to client application
@@ -962,6 +1134,25 @@ app.post('/api/v1/webhooks/nuvex', async (req: CustomRequest, res: Response) => 
 
   // Nuvex specifies returning 200 OK
   return res.status(200).json({ received: true });
+});
+
+// ----------------------------------------------------
+// Customer Portal Endpoints
+// ----------------------------------------------------
+app.get('/api/v1/customer/purchases', async (req: CustomRequest, res: Response) => {
+  try {
+    const authUser = req.adminUser;
+    const queryEmail = (req.query.email as string) || authUser?.email;
+
+    if (!queryEmail) {
+      return res.status(400).json({ success: false, error: 'Email do cliente não informado.' });
+    }
+
+    const purchases = store.getCustomerPurchases(queryEmail);
+    res.json({ success: true, count: purchases.length, purchases });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ----------------------------------------------------
@@ -1048,6 +1239,24 @@ app.post('/api/v1/links', requireAdminAuth, (req, res) => {
     }
 
     res.status(201).json({ success: true, link: newLink });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/v1/links/:id', requireAdminAuth, (req, res) => {
+  try {
+    const existing = store.getLinkById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Link de pagamento não encontrado' });
+    }
+    const updated: PaymentLink = {
+      ...existing,
+      ...req.body,
+      id: existing.id, // protect ID
+    };
+    store.saveLink(updated);
+    res.json({ success: true, link: updated });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

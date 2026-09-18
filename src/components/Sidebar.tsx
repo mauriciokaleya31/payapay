@@ -60,11 +60,17 @@ export function Sidebar({
           description: 'Métricas e volume financeiro global',
         },
         {
+          id: 'sellers',
+          label: 'Vendedores & KYC',
+          icon: UserCog,
+          description: 'Aprovação KYC e taxas de comissão',
+          isFeatured: true,
+        },
+        {
           id: 'users',
           label: 'Utilizadores & Devs',
           icon: Users,
           description: 'Gestão de contas, devs e taxa 20%',
-          isFeatured: true,
         },
         {
           id: 'transactions',
@@ -83,6 +89,12 @@ export function Sidebar({
           label: 'Produtos & Catálogo',
           icon: ShoppingBag,
           description: 'Itens com link integrado',
+        },
+        {
+          id: 'customer_portal',
+          label: 'Área de Clientes & Faturas',
+          icon: ScrollText,
+          description: 'Histórico, faturas e downloads',
         },
         {
           id: 'apps',
@@ -286,6 +298,21 @@ export function Sidebar({
           <div className="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Documentação & Recursos
           </div>
+          <button
+            type="button"
+            onClick={() => handleSelectTab('landing')}
+            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition-colors ${
+              activeTab === 'landing'
+                ? 'bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30'
+                : 'text-slate-400 hover:text-emerald-300 hover:bg-slate-800/60'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs">Ver Landing Page</span>
+            </div>
+            <ExternalLink className="w-3 h-3 text-slate-500" />
+          </button>
           <a
             href="https://pagamentos-nuvex.lovable.app/docs"
             target="_blank"
