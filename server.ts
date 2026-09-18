@@ -15,6 +15,13 @@ import {
   createSession,
   validateSessionToken,
 } from './server/auth.js';
+import {
+  sendCustomerAccountCreatedEmail,
+  sendPaymentInstructionsEmail,
+  sendPaymentReceiptEmail,
+  sendSystemEmail,
+  resetTransporter,
+} from './server/emailService.js';
 
 dotenv.config();
 
@@ -625,25 +632,70 @@ app.put('/api/v1/settings', requireAdminAuth, (req: CustomRequest, res: Response
       return res.status(403).json({ success: false, error: 'Apenas administradores podem atualizar as configurações da plataforma.' });
     }
 
-    const { platformName, platformLogoUrl, tagline, supportEmail, supportPhone } = req.body;
+    const { platformName, platformLogoUrl, tagline, supportEmail, supportPhone, smtpHost, smtpPort, smtpUser, smtpPass, smtpSecure, smtpFrom } = req.body;
     const updated = store.savePlatformSettings({
       platformName: platformName?.trim() || undefined,
       platformLogoUrl: platformLogoUrl !== undefined ? platformLogoUrl.trim() : undefined,
       tagline: tagline !== undefined ? tagline.trim() : undefined,
       supportEmail: supportEmail !== undefined ? supportEmail.trim() : undefined,
       supportPhone: supportPhone !== undefined ? supportPhone.trim() : undefined,
+      smtpHost: smtpHost !== undefined ? smtpHost.trim() : undefined,
+      smtpPort: smtpPort !== undefined ? Number(smtpPort) : undefined,
+      smtpUser: smtpUser !== undefined ? smtpUser.trim() : undefined,
+      smtpPass: smtpPass !== undefined ? smtpPass : undefined,
+      smtpSecure: smtpSecure !== undefined ? Boolean(smtpSecure) : undefined,
+      smtpFrom: smtpFrom !== undefined ? smtpFrom.trim() : undefined,
     });
+
+    resetTransporter();
 
     store.addLog({
       type: 'provider_config',
-      title: `Configurações de Identidade da Plataforma Atualizadas`,
-      details: `Nome: ${updated.platformName} | Logo: ${updated.platformLogoUrl ? 'Definido' : 'Padrão'} por ${req.adminSession?.userEmail}`,
+      title: `Configurações da Plataforma & E-mail Atualizadas`,
+      details: `Nome: ${updated.platformName} | SMTP: ${updated.smtpHost || 'Padrão do Sistema'} por ${req.adminSession?.userEmail}`,
       endpoint: '/api/v1/settings',
       statusCode: 200,
       success: true,
     });
 
-    res.json({ success: true, settings: updated, message: 'Identidade da plataforma atualizada com sucesso!' });
+    res.json({ success: true, settings: updated, message: 'Configurações atualizadas com sucesso!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Test email endpoint
+app.post('/api/v1/system/test-email', async (req: CustomRequest, res: Response) => {
+  try {
+    const { to } = req.body;
+    const targetEmail = to || req.adminSession?.userEmail || 'kaleyapt@gmail.com';
+    const settings = store.getPlatformSettings();
+    const result = await sendSystemEmail({
+      to: targetEmail,
+      subject: `Teste de Entrega de E-mail - ${settings.platformName || 'Pay Yetux Angola'}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px; border: 1px solid #1e293b; max-width: 500px; margin: 0 auto;">
+          <h2 style="color: #34d399; margin-top: 0;">Serviço de E-mail Conectado com Sucesso!</h2>
+          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6;">
+            Este e-mail confirma que as notificações automáticas de criação de conta, envio de senhas de acesso aos infoprodutos e recibos de pagamento estão a funcionar corretamente.
+          </p>
+          <div style="background: #020617; padding: 12px 16px; border-radius: 8px; border: 1px solid #334155; margin: 16px 0; font-size: 13px;">
+            <p style="margin: 4px 0;"><strong>Destinatário:</strong> ${targetEmail}</p>
+            <p style="margin: 4px 0;"><strong>Data de Verificação:</strong> ${new Date().toLocaleString('pt-AO')}</p>
+            <p style="margin: 4px 0;"><strong>Plataforma:</strong> ${settings.platformName || 'Pay Yetux Angola'}</p>
+          </div>
+        </div>
+      `,
+      category: 'test_email',
+    });
+
+    res.json({
+      success: result.success,
+      message: result.success
+        ? `E-mail de teste enviado com sucesso para ${targetEmail}!`
+        : `Erro ao enviar e-mail: ${result.error}`,
+      details: result,
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -700,6 +752,63 @@ app.get('/api/v1/charges', requireAdminAuth, (req: CustomRequest, res: Response)
   }
 });
 
+// Helper: Process paid charge, update inventory/stats, deliver infoproduct and send receipt email
+async function processChargePaid(charge: Charge, paidAt?: string) {
+  charge.status = 'paid';
+  charge.paidAt = paidAt || charge.paidAt || new Date().toISOString();
+
+  // Ensure customer account is created
+  if (charge.customerEmail) {
+    try {
+      const custAcc = store.getOrCreateCustomerAccount(
+        charge.customerEmail,
+        charge.customerName,
+        charge.phoneNumber
+      );
+      (charge as any).customerAccount = custAcc;
+    } catch (err: any) {
+      console.warn('[Customer Account] Erro ao obter/criar conta cliente:', err.message);
+    }
+  }
+
+  // Update payment link metrics
+  if (charge.paymentLinkId) {
+    const link = store.getLinkById(charge.paymentLinkId);
+    if (link) {
+      link.totalSalesCount += 1;
+      link.totalSalesAmount += charge.amount;
+      store.saveLink(link);
+    }
+  }
+
+  let digitalUrl: string | undefined;
+  if (charge.productId) {
+    const prod = store.getProductById(charge.productId);
+    if (prod) {
+      prod.salesCount += 1;
+      if (prod.stock && prod.stock > 0) prod.stock -= 1;
+      store.saveProduct(prod);
+      digitalUrl = prod.digitalFileUrl;
+    }
+  }
+
+  store.saveCharge(charge);
+
+  // Send paid receipt & digital infoproduct download email
+  if (charge.customerEmail) {
+    sendPaymentReceiptEmail(charge.customerEmail, charge, digitalUrl).catch((err) =>
+      console.warn('[Email] Erro no envio do recibo de pagamento:', err.message)
+    );
+  }
+
+  if (charge.appId) {
+    const clientApp = store.getAppById(charge.appId);
+    if (clientApp) {
+      dispatchClientWebhook(charge, clientApp, 'charge.paid');
+    }
+  }
+}
+
 // Get charge by ID or merchant transaction ID
 app.get('/api/v1/charges/:id', async (req, res) => {
   try {
@@ -720,46 +829,7 @@ app.get('/api/v1/charges/:id', async (req, res) => {
           const statusResult = await provider.checkStatus(queryId, config);
 
           if (statusResult.status === 'paid') {
-            charge.status = 'paid';
-            charge.paidAt = statusResult.paidAt || new Date().toISOString();
-
-            // Auto-create customer account if email provided
-            if (charge.customerEmail) {
-              const custAcc = store.getOrCreateCustomerAccount(
-                charge.customerEmail,
-                charge.customerName,
-                charge.phoneNumber
-              );
-              (charge as any).customerAccount = custAcc;
-            }
-
-            // Update stats & sales counts
-            if (charge.paymentLinkId) {
-              const link = store.getLinkById(charge.paymentLinkId);
-              if (link) {
-                link.totalSalesCount += 1;
-                link.totalSalesAmount += charge.amount;
-                store.saveLink(link);
-              }
-            }
-
-            if (charge.productId) {
-              const prod = store.getProductById(charge.productId);
-              if (prod) {
-                prod.salesCount += 1;
-                if (prod.stock && prod.stock > 0) prod.stock -= 1;
-                store.saveProduct(prod);
-              }
-            }
-
-            store.saveCharge(charge);
-
-            if (charge.appId) {
-              const clientApp = store.getAppById(charge.appId);
-              if (clientApp) {
-                dispatchClientWebhook(charge, clientApp, 'charge.paid');
-              }
-            }
+            await processChargePaid(charge, statusResult.paidAt);
           } else if (statusResult.status === 'failed') {
             charge.status = 'failed';
             charge.failedAt = new Date().toISOString();
@@ -876,6 +946,36 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
 
     store.saveCharge(newCharge);
 
+    // Auto-create customer account IMMEDIATELY upon checkout submission if email provided
+    // Mesmo sem ele fazer o pagamento, basta ele por o email ele ja deve ter uma conta criada automaticamente
+    let customerAccountInfo: any = null;
+    if (newCharge.customerEmail) {
+      try {
+        const custAcc = store.getOrCreateCustomerAccount(
+          newCharge.customerEmail,
+          newCharge.customerName,
+          newCharge.phoneNumber
+        );
+        customerAccountInfo = custAcc;
+        (newCharge as any).customerAccount = custAcc;
+
+        if (custAcc.isNew && custAcc.temporaryPassword) {
+          sendCustomerAccountCreatedEmail(
+            newCharge.customerEmail,
+            newCharge.customerName || 'Cliente',
+            custAcc.temporaryPassword
+          ).catch((err) => console.warn('[Email] Erro ao enviar credenciais de acesso:', err.message));
+        }
+
+        // Send payment instructions email (MCX push or GPR entity/reference)
+        sendPaymentInstructionsEmail(newCharge.customerEmail, newCharge).catch((err) =>
+          console.warn('[Email] Erro ao enviar instruções de pagamento:', err.message)
+        );
+      } catch (err: any) {
+        console.warn('[Customer Account] Erro ao auto-registar cliente:', err.message);
+      }
+    }
+
     // If charge linked to a payment link, update link stats
     if (newCharge.paymentLinkId) {
       const link = store.getLinkById(newCharge.paymentLinkId);
@@ -888,7 +988,7 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
     store.addLog({
       type: 'api_request',
       title: `Cobrança Criada: ${newCharge.amount} Kz (${newCharge.method})`,
-      details: `Provedor: ${provider.name} | MerchantTx: ${newCharge.merchantTransactionId}`,
+      details: `Provedor: ${provider.name} | MerchantTx: ${newCharge.merchantTransactionId} | Cliente: ${newCharge.customerEmail || 'Anónimo'}`,
       endpoint: '/api/v1/charges',
       statusCode: 201,
       success: true,
@@ -900,6 +1000,7 @@ app.post('/api/v1/charges', authenticateClient, async (req: CustomRequest, res: 
     res.status(201).json({
       success: true,
       charge: newCharge,
+      customerAccount: customerAccountInfo,
       message:
         payMethod === 'GPO'
           ? 'Notificação Multicaixa Express emitida para o telemóvel do cliente'
@@ -946,59 +1047,12 @@ app.post('/api/v1/charges/:id/sync', async (req, res) => {
       }
 
       if (statusResult.status !== charge.status) {
-        charge.status = statusResult.status;
-        if (statusResult.status === 'paid' && !charge.paidAt) {
-          charge.paidAt = statusResult.paidAt || new Date().toISOString();
-        }
-
         if (statusResult.status === 'paid') {
-          // Auto-create customer account
-          if (charge.customerEmail) {
-            const custAcc = store.getOrCreateCustomerAccount(
-              charge.customerEmail,
-              charge.customerName,
-              charge.phoneNumber
-            );
-            (charge as any).customerAccount = custAcc;
-          }
-
-          if (charge.paymentLinkId) {
-            const link = store.getLinkById(charge.paymentLinkId);
-            if (link) {
-              link.totalSalesCount += 1;
-              link.totalSalesAmount += charge.amount;
-              store.saveLink(link);
-            }
-          }
-
-          if (charge.productId) {
-            const prod = store.getProductById(charge.productId);
-            if (prod) {
-              prod.salesCount += 1;
-              if (prod.stock && prod.stock > 0) prod.stock -= 1;
-              store.saveProduct(prod);
-            }
-          }
-
-          store.addLog({
-            type: 'charge_status',
-            title: `Pagamento Aprovado (${charge.method}): ${charge.amount} Kz`,
-            details: `Cliente: ${charge.customerEmail || charge.customerName || 'N/A'} | Provedor: ${provider.name} | Sincronização em tempo real`,
-            endpoint: `/api/v1/charges/${charge.id}/sync`,
-            statusCode: 200,
-            success: true,
-            chargeId: charge.id,
-          });
-        }
-
-        store.saveCharge(charge);
-
-        // Notify client application if registered
-        if (charge.appId) {
-          const app = store.getAppById(charge.appId);
-          if (app) {
-            dispatchClientWebhook(charge, app, `charge.${charge.status}` as any);
-          }
+          await processChargePaid(charge, statusResult.paidAt);
+        } else if (statusResult.status === 'failed') {
+          charge.status = 'failed';
+          charge.failedAt = new Date().toISOString();
+          store.saveCharge(charge);
         }
       }
     }
@@ -1144,46 +1198,7 @@ app.post('/api/v1/webhooks/nuvex', async (req: CustomRequest, res: Response) => 
   // Idempotent update
   if (existingCharge) {
     if (status === 'paid' && existingCharge.status !== 'paid') {
-      existingCharge.status = 'paid';
-      existingCharge.paidAt = dataObj.paid_at || payload.paid_at || new Date().toISOString();
-
-      // Auto-create customer account
-      if (existingCharge.customerEmail) {
-        const custAcc = store.getOrCreateCustomerAccount(
-          existingCharge.customerEmail,
-          existingCharge.customerName,
-          existingCharge.phoneNumber
-        );
-        (existingCharge as any).customerAccount = custAcc;
-      }
-
-      if (existingCharge.paymentLinkId) {
-        const link = store.getLinkById(existingCharge.paymentLinkId);
-        if (link) {
-          link.totalSalesCount += 1;
-          link.totalSalesAmount += existingCharge.amount;
-          store.saveLink(link);
-        }
-      }
-
-      if (existingCharge.productId) {
-        const prod = store.getProductById(existingCharge.productId);
-        if (prod) {
-          prod.salesCount += 1;
-          if (prod.stock && prod.stock > 0) prod.stock -= 1;
-          store.saveProduct(prod);
-        }
-      }
-
-      store.saveCharge(existingCharge);
-
-      // Forward webhook event to client application
-      if (existingCharge.appId) {
-        const clientApp = store.getAppById(existingCharge.appId);
-        if (clientApp) {
-          dispatchClientWebhook(existingCharge, clientApp, 'charge.paid');
-        }
-      }
+      await processChargePaid(existingCharge, dataObj.paid_at || payload.paid_at);
     } else if (status === 'failed' && existingCharge.status !== 'failed') {
       existingCharge.status = 'failed';
       existingCharge.failedAt = new Date().toISOString();

@@ -282,4 +282,10 @@ export interface PlatformSettings {
   supportEmail?: string;
   supportPhone?: string;
   updatedAt?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpSecure?: boolean;
+  smtpFrom?: string;
 }

@@ -126,13 +126,13 @@ export function LoginView({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-emerald-500 selection:text-white">
       {/* Background Subtle Gradient Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
       
       {/* Back to landing page button */}
       {onBackToLanding && (
-        <div className="absolute top-6 left-6 z-20">
+        <div className="sm:absolute top-4 sm:top-6 left-4 sm:left-6 z-20 mb-4 sm:mb-0">
           <button
             onClick={onBackToLanding}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
@@ -145,22 +145,24 @@ export function LoginView({
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex items-center justify-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-900/30 ring-1 ring-emerald-400/30">
-            <ShieldCheck className="w-7 h-7 text-white" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-900/30 ring-1 ring-emerald-400/30 shrink-0">
+            <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              Pay Yetux
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
-                Infoprodutos & Pagamentos
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Pay Yetux
               </span>
-            </h1>
+              <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
+                Infoprodutos
+              </span>
+            </div>
             <p className="text-xs text-slate-400">Vendas Digitais e Pagamentos em Angola</p>
           </div>
         </div>
 
         {/* Tab Selector */}
-        <div className="mt-6 flex bg-slate-900/90 p-1 rounded-xl border border-slate-800 max-w-xs mx-auto">
+        <div className="mt-5 sm:mt-6 flex bg-slate-900/90 p-1 rounded-xl border border-slate-800 max-w-xs mx-auto">
           <button
             id="tab-login"
             type="button"
@@ -268,16 +270,6 @@ export function LoginView({
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs text-slate-300">Ambiente Seguro (HTTPS)</span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  EMIS Nuvex Angola
-                </span>
               </div>
 
               <div>

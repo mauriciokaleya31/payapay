@@ -59,37 +59,27 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* Background Subtle Gradient Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
 
-      {/* Top Announcement Banner */}
-      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-b border-emerald-500/20 py-2.5 px-4 text-center text-xs font-medium text-emerald-300 flex items-center justify-center gap-2">
-        <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-        <span>Venda infoprodutos em Angola com <strong>Multicaixa Express</strong> e aprovação em tempo real.</span>
-        <button 
-          onClick={() => onGoToRegister('merchant')}
-          className="underline hover:text-white font-semibold ml-1 transition-colors"
-        >
-          Criar Conta de Vendedor &rarr;
-        </button>
-      </div>
-
       {/* Navigation Bar */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-900/30 ring-1 ring-emerald-400/30">
-              <ShieldCheck className="w-6 h-6 text-white" />
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-slate-950/90 border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-900/30 ring-1 ring-emerald-400/30 shrink-0">
+              <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <div>
-              <span className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-                Pay Yetux
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-lg sm:text-xl font-bold tracking-tight text-white whitespace-nowrap">
+                  Pay Yetux
+                </span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   Infoprodutos
                 </span>
-              </span>
-              <p className="text-[11px] text-slate-400">Vendas Digitais & Assinaturas em Angola</p>
+              </div>
+              <p className="text-[11px] text-slate-400 hidden sm:block truncate">Vendas Digitais & Assinaturas em Angola</p>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium text-slate-300">
             <a href="#recursos" className="hover:text-emerald-400 transition-colors">Recursos</a>
             <a href="#infoprodutos" className="hover:text-emerald-400 transition-colors">Infoprodutos</a>
             <a href="#checkout" className="hover:text-emerald-400 transition-colors">Checkout Personalizado</a>
@@ -97,55 +87,56 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             <a href="#taxas" className="hover:text-emerald-400 transition-colors">Taxas</a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               id="btn-nav-login"
               onClick={onGoToLogin}
-              className="text-sm font-semibold text-slate-200 hover:text-white px-3.5 py-2 rounded-lg hover:bg-slate-900 transition-colors"
+              className="text-xs sm:text-sm font-semibold text-slate-200 hover:text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg hover:bg-slate-900 transition-colors"
             >
               Entrar
             </button>
             <button
               id="btn-nav-start-selling"
               onClick={() => onGoToRegister('merchant')}
-              className="text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 rounded-lg shadow-sm shadow-emerald-900/40 transition-all flex items-center gap-1.5 ring-1 ring-emerald-400/30"
+              className="text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-lg shadow-sm shadow-emerald-900/40 transition-all flex items-center gap-1.5 ring-1 ring-emerald-400/30 whitespace-nowrap"
             >
-              Começar a Vender
-              <ArrowRight className="w-4 h-4" />
+              <span>Vender</span>
+              <span className="hidden sm:inline">Infoprodutos</span>
+              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center z-10">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-6">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-          A Plataforma de Infoprodutos Feita para Angola
+      <section className="relative pt-10 pb-16 sm:pt-20 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center z-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] sm:text-xs font-semibold mb-5 max-w-full">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate">A Plataforma de Infoprodutos Feita para Angola</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight sm:leading-none">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-tight sm:leading-tight">
           Venda os seus <span className="text-emerald-400">Infoprodutos</span>, Cursos e Assinaturas em Angola
         </h1>
 
-        <p className="mt-6 text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto font-normal leading-relaxed">
-          Receba pagamentos diretos em Kwanzas via <strong>Multicaixa Express</strong> e Referência Bancária com aprovação em segundos. Automatize a entrega dos seus arquivos digitais e personalize o seu próprio checkout.
+        <p className="mt-4 sm:mt-6 text-sm sm:text-lg text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
+          Receba pagamentos em Kwanzas via <strong>Multicaixa Express</strong> e Referência Bancária com aprovação imediata. Automatize a entrega dos seus arquivos digitais e tenha seu próprio checkout.
         </p>
 
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+        <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 max-w-md mx-auto">
           <button
             id="btn-hero-seller-register"
             onClick={() => onGoToRegister('merchant')}
-            className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base shadow-lg shadow-emerald-900/40 transition-all flex items-center justify-center gap-2 ring-1 ring-emerald-400/30"
+            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-900/40 transition-all flex items-center justify-center gap-2 ring-1 ring-emerald-400/30"
           >
-            Criar Conta de Vendedor
-            <ArrowRight className="w-5 h-5" />
+            Começar como Vendedor
+            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           {onOpenDemoCheckout && (
             <button
               id="btn-hero-demo-checkout"
               onClick={onOpenDemoCheckout}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-base transition-colors flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm sm:text-base transition-colors flex items-center justify-center gap-2"
             >
               <Smartphone className="w-4 h-4 text-emerald-400" />
               Ver Demonstração de Checkout
@@ -154,42 +145,42 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </div>
 
         {/* Trust Badges */}
-        <div className="mt-14 pt-10 border-t border-slate-800/60 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto text-left">
-          <div className="flex items-center gap-3">
+        <div className="mt-12 sm:mt-14 pt-8 sm:pt-10 border-t border-slate-800/60 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto text-left">
+          <div className="flex items-center gap-3 p-3 sm:p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/80">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <Smartphone className="w-5 h-5 text-emerald-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-white">Multicaixa Express</p>
               <p className="text-xs text-slate-400">Push instantâneo no telemóvel</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 p-3 sm:p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/80">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <CreditCard className="w-5 h-5 text-emerald-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-white">Referência GPR</p>
               <p className="text-xs text-slate-400">Entidade e Referência EMIS</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 p-3 sm:p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/80">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <UserCheck className="w-5 h-5 text-emerald-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-white">Conta Automática</p>
               <p className="text-xs text-slate-400">Comprador recebe acesso na hora</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 p-3 sm:p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/80">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <Palette className="w-5 h-5 text-emerald-400" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-white">Checkout Próprio</p>
               <p className="text-xs text-slate-400">Personalize com sua marca</p>
             </div>
@@ -198,71 +189,77 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* Infoproduct Types Showcase */}
-      <section id="infoprodutos" className="py-20 bg-slate-900/50 border-y border-slate-800">
+      <section id="infoprodutos" className="py-14 sm:py-20 bg-slate-900/50 border-y border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-14">
+          <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
             <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
               Infoprodutos & Formatos Suportados
             </h2>
-            <p className="text-3xl font-extrabold text-white sm:text-4xl">
-              Tudo o que você precisa para monetizar seu conhecimento em Angola
+            <p className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">
+              Tudo o que precisa para monetizar o seu conhecimento em Angola
             </p>
-            <p className="mt-3 text-slate-300">
-              Venda conteúdos digitais com entrega 100% automatizada assim que o pagamento via Multicaixa for confirmado.
+            <p className="mt-3 text-sm sm:text-base text-slate-300">
+              Venda conteúdos digitais com entrega 100% automatizada após a confirmação via Multicaixa.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400">
-                <BookOpen className="w-6 h-6" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+            <div className="bg-slate-900 border border-slate-800 p-5 sm:p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 sm:mb-5 text-emerald-400">
+                <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">E-books & Guias em PDF</h3>
-              <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-                Faça o upload do seu livro digital. Após o pagamento, o comprador faz o download imediato e recebe uma cópia segura no e-mail.
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">E-books & Guias em PDF</h3>
+              <p className="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
+                Carregue o seu livro digital. Após o pagamento, o comprador faz o download imediato e recebe uma cópia segura no e-mail.
               </p>
               <ul className="space-y-2 text-xs text-slate-400">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Download protegido com fatura gerada
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Download protegido com fatura gerada</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Histórico permanente no portal do aluno
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Histórico permanente no portal do aluno</span>
                 </li>
               </ul>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400">
-                <GraduationCap className="w-6 h-6" />
+            <div className="bg-slate-900 border border-slate-800 p-5 sm:p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 sm:mb-5 text-emerald-400">
+                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Cursos & Treinamentos Online</h3>
-              <p className="text-sm text-slate-300 mb-4 leading-relaxed">
-                Crie links de pagamento para matrículas em videoaulas, workshops e masterclasses. Notifique os alunos por SMS ou WhatsApp.
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Cursos & Treinamentos Online</h3>
+              <p className="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
+                Crie links de pagamento para matrículas em videoaulas, workshops e masterclasses com notificações por e-mail e SMS.
               </p>
               <ul className="space-y-2 text-xs text-slate-400">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Conta de estudante gerada automaticamente
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Conta de estudante gerada automaticamente</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Links de checkout personalizáveis por turma
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Links de checkout personalizáveis por turma</span>
                 </li>
               </ul>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5 text-emerald-400">
-                <Layers className="w-6 h-6" />
+            <div className="bg-slate-900 border border-slate-800 p-5 sm:p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 sm:mb-5 text-emerald-400">
+                <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Assinaturas & Mentorias</h3>
-              <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">Assinaturas & Mentorias</h3>
+              <p className="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
                 Cobrança recorrente para comunidades VIP, mentorias privadas, consultorias e softwares como serviço (SaaS).
               </p>
               <ul className="space-y-2 text-xs text-slate-400">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Planos mensais, trimestrais e anuais
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Planos mensais, trimestrais e anuais</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Gestão de cobrança e reenvio de referências
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Gestão de cobrança e reenvio de referências</span>
                 </li>
               </ul>
             </div>
@@ -271,32 +268,32 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* Checkout Customization Feature Highlight */}
-      <section id="checkout" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <section id="checkout" className="py-14 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3 sm:mb-4">
               <Palette className="w-3.5 h-3.5" />
               Experiência Sob Medida
             </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white leading-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
               Personalize o seu próprio Checkout para multiplicar as suas vendas
             </h2>
-            <p className="mt-4 text-slate-300 text-base leading-relaxed">
-              Diga adeus a páginas de pagamento genéricas. No Pay Yetux, cada criador personaliza as cores da sua marca, adiciona o seu logótipo, selos de garantia de 7 ou 14 dias, contagem regressiva de urgência e depoimentos de alunos reais.
+            <p className="mt-3 sm:mt-4 text-slate-300 text-sm sm:text-base leading-relaxed">
+              Diga adeus a páginas de pagamento genéricas. No Pay Yetux, cada criador personaliza as cores da sua marca, adiciona o seu logótipo, selos de garantia de 7 ou 14 dias, contagem regressiva de urgência e depoimentos reais.
             </p>
 
-            <div className="mt-8 space-y-4">
-              <div className="flex items-start gap-3.5">
+            <div className="mt-6 sm:mt-8 space-y-3.5 sm:space-y-4">
+              <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Cores e Identidade Visual</h4>
-                  <p className="text-xs text-slate-400">Combine a página com a sua marca para transmitir 100% de confiança ao cliente.</p>
+                  <p className="text-xs text-slate-400">Combine a página com a sua marca para transmitir total confiança ao comprador.</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3.5">
+              <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
@@ -306,21 +303,21 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-start gap-3.5">
+              <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Criação de Conta Automática para o Comprador</h4>
-                  <p className="text-xs text-slate-400">O comprador compra como convidado sem atrito. O sistema cria o acesso e envia a fatura por e-mail.</p>
+                  <p className="text-xs text-slate-400">O comprador adquire como convidado sem atrito. O sistema cria o acesso e envia a fatura por e-mail.</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-6 sm:mt-8">
               <button
                 onClick={() => onGoToRegister('merchant')}
-                className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all inline-flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all inline-flex items-center justify-center gap-2"
               >
                 Criar Meu Checkout Agora
                 <ArrowRight className="w-4 h-4" />
@@ -329,55 +326,57 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </div>
 
           {/* Mock Visual of Standalone Checkout */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl relative">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-                <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                <span className="text-xs text-slate-400 font-mono ml-2">payyetux.ao/checkout/curso-marketing</span>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4 gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80 shrink-0" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80 shrink-0" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shrink-0" />
+                <span className="text-[11px] text-slate-400 font-mono ml-1 truncate max-w-[140px] sm:max-w-none">
+                  payyetux.ao/checkout/curso-marketing
+                </span>
               </div>
-              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
                 Checkout Dedicado
               </span>
             </div>
 
             {/* Inner Checkout Preview */}
-            <div className="bg-slate-950 rounded-xl p-5 border border-slate-800/80">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-xs">
+            <div className="bg-slate-950 rounded-xl p-4 sm:p-5 border border-slate-800/80">
+              <div className="flex items-center justify-between mb-4 gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-xs shrink-0">
                     AC
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-white">Academia Criativa Angola</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">Academia Criativa Angola</p>
                     <p className="text-[10px] text-emerald-400">Vendedor Verificado KYC</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400">Preço</span>
-                  <p className="text-base font-black text-emerald-400">15.000 Kz</p>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] text-slate-400 block">Preço</span>
+                  <p className="text-sm sm:text-base font-black text-emerald-400">15.000 Kz</p>
                 </div>
               </div>
 
               <div className="bg-slate-900/90 rounded-lg p-3 border border-slate-800 mb-4 flex items-center gap-3">
-                <div className="w-12 h-12 rounded bg-slate-800 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-6 h-6 text-emerald-400" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-slate-800 flex items-center justify-center shrink-0">
+                  <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white">Guia de Vendas Digitais & Tráfego Pago</p>
-                  <p className="text-[11px] text-slate-400">Acesso instantâneo a PDF + Vídeos gravados</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Guia de Vendas Digitais & Tráfego Pago</p>
+                  <p className="text-[11px] text-slate-400 truncate">Acesso instantâneo a PDF + Vídeos gravados</p>
                 </div>
               </div>
 
               <div className="space-y-2 mb-4">
-                <div className="h-8 bg-slate-900 rounded border border-slate-800 flex items-center px-3 text-xs text-slate-300">
+                <div className="h-8 bg-slate-900 rounded border border-slate-800 flex items-center px-3 text-xs text-slate-300 truncate">
                   Nome Completo: João Manuel
                 </div>
-                <div className="h-8 bg-slate-900 rounded border border-slate-800 flex items-center px-3 text-xs text-slate-300">
+                <div className="h-8 bg-slate-900 rounded border border-slate-800 flex items-center px-3 text-xs text-slate-300 truncate">
                   E-mail: joao@gmail.com
                 </div>
-                <div className="h-8 bg-slate-900 rounded border border-slate-800 flex items-center px-3 text-xs text-slate-300">
+                <div className="h-8 bg-slate-900 rounded border border-slate-800 flex items-center px-3 text-xs text-slate-300 truncate">
                   Telemóvel MCX: 923 456 789
                 </div>
               </div>
@@ -398,7 +397,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               </button>
 
               <p className="text-[10px] text-center text-slate-400 mt-2 flex items-center justify-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-400" /> Garantia incondicional de 7 dias com reembolso
+                <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>Garantia incondicional de 7 dias</span>
               </p>
             </div>
           </div>
@@ -406,23 +406,23 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* Interactive Simulator Section */}
-      <section id="simulador" className="py-20 bg-slate-900/40 border-t border-slate-800">
+      <section id="simulador" className="py-14 sm:py-20 bg-slate-900/40 border-t border-slate-800">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
               <Calculator className="w-3.5 h-3.5" />
               Calculadora de Faturamento
             </div>
-            <h2 className="text-3xl font-extrabold text-white">Simule os seus ganhos mensais</h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Veja quanto você recebe na sua conta bancária angolana (BAI, BFA, BIC, etc.) ao vender os seus infoprodutos.
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Simule os seus ganhos mensais</h2>
+            <p className="mt-2 text-xs sm:text-sm text-slate-300">
+              Veja quanto recebe na sua conta bancária angolana (BAI, BFA, BIC, etc.) ao vender os seus infoprodutos.
             </p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-8 shadow-xl">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
               {/* Controls */}
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
@@ -471,31 +471,32 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
                 <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
                   <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                    <CheckCircle2 className="w-4 h-4" /> Sem custos fixos mensais
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Sem custos fixos mensais</span>
                   </div>
-                  <p className="text-slate-400 text-[11px]">
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
                     Você só paga a comissão de plataforma quando realizar uma venda aprovada. Se não vender nada, não paga nada.
                   </p>
                 </div>
               </div>
 
               {/* Results Box */}
-              <div className="bg-slate-950 rounded-xl p-6 border border-emerald-500/20 flex flex-col justify-between">
+              <div className="bg-slate-950 rounded-xl p-5 sm:p-6 border border-emerald-500/20 flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Seu Lucro Líquido no Bolso</span>
-                  <p className="text-4xl sm:text-5xl font-black text-emerald-400 mt-2 tracking-tight">
+                  <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-emerald-400 mt-2 tracking-tight break-words">
                     {formatKz(netEarnings)}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">Transferido diretamente para o seu IBAN bancário.</p>
                 </div>
 
-                <div className="border-t border-slate-800 pt-4 mt-6 space-y-2 text-xs">
+                <div className="border-t border-slate-800 pt-4 mt-5 sm:mt-6 space-y-2 text-xs">
                   <div className="flex justify-between text-slate-300">
                     <span>Volume Total Bruto:</span>
                     <span className="font-semibold text-white">{formatKz(grossTotal)}</span>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Taxa da Plataforma Pay Yetux (10%):</span>
+                    <span>Taxa Pay Yetux (10%):</span>
                     <span className="text-rose-400 font-medium">-{formatKz(platformFee)}</span>
                   </div>
                   <div className="flex justify-between text-emerald-400 font-bold pt-2 border-t border-slate-800">
@@ -506,7 +507,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
                 <button
                   onClick={() => onGoToRegister('merchant')}
-                  className="w-full mt-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow transition-all flex items-center justify-center gap-2"
+                  className="w-full mt-5 sm:mt-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow transition-all flex items-center justify-center gap-2"
                 >
                   Começar a Faturar Hoje
                   <ArrowRight className="w-4 h-4" />
@@ -518,49 +519,49 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* Transparent Pricing / Taxas */}
-      <section id="taxas" className="py-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section id="taxas" className="py-14 sm:py-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
           Taxas Claras & Sem Letras Miúdas
         </h2>
-        <p className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+        <p className="text-2xl sm:text-4xl font-extrabold text-white mb-3">
           Você só paga quando vender
         </p>
-        <p className="text-slate-300 text-sm max-w-xl mx-auto mb-10">
+        <p className="text-slate-300 text-xs sm:text-sm max-w-xl mx-auto mb-8 sm:mb-10">
           Sem mensalidades, sem custos de ativação ou taxas ocultas de servidor.
         </p>
 
-        <div className="max-w-md mx-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
+        <div className="max-w-md mx-auto bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-2xl shadow-xl">
           <div className="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-4">
             Plano Produtor Digital
           </div>
           <div className="flex items-baseline justify-center gap-1 my-3">
-            <span className="text-5xl font-black text-white">10%</span>
-            <span className="text-slate-400 text-sm">por venda realizada</span>
+            <span className="text-4xl sm:text-5xl font-black text-white">10%</span>
+            <span className="text-slate-400 text-xs sm:text-sm">por venda realizada</span>
           </div>
-          <p className="text-xs text-slate-300 mb-6">
+          <p className="text-xs text-slate-300 mb-6 leading-relaxed">
             Taxa única com tudo incluído: gateway Multicaixa Express, processamento GPR, hospedagem de arquivos e envio de e-mails com fatura.
           </p>
 
           <ul className="space-y-3 text-left text-xs text-slate-300 mb-8">
-            <li className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              Links de Pagamento ilimitados
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>Links de Pagamento ilimitados</span>
             </li>
-            <li className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              Checkout 100% personalizável com sua marca
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>Checkout 100% personalizável com sua marca</span>
             </li>
-            <li className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              Criação automática de conta para seus alunos
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>Criação automática de conta para seus alunos</span>
             </li>
-            <li className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              Levantamentos bancários automáticos para BAI, BFA, BIC
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>Levantamentos bancários automáticos para BAI, BFA, BIC</span>
             </li>
-            <li className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              Verificação KYC prioritária
+            <li className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <span>Verificação KYC prioritária</span>
             </li>
           </ul>
 
@@ -575,24 +576,24 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 text-slate-400 text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+      <footer className="border-t border-slate-800 bg-slate-950 py-8 sm:py-12 px-4 sm:px-6 lg:px-8 text-slate-400 text-xs">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5 text-center sm:text-left">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
+            <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <span className="text-white font-bold text-sm">Pay Yetux Gateway Angola</span>
           </div>
 
-          <p className="text-center text-slate-500">
-            &copy; {new Date().getFullYear()} Pay Yetux. Infraestrutura de Infoprodutos, Assinaturas e Pagamentos Multicaixa Express.
+          <p className="text-slate-500 text-xs">
+            &copy; {new Date().getFullYear()} Pay Yetux. Infraestrutura de Infoprodutos e Multicaixa Express.
           </p>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 text-xs">
             <button onClick={onGoToLogin} className="hover:text-emerald-400 transition-colors">
               Acesso Restrito
             </button>
-            <span>&bull;</span>
+            <span className="text-slate-700">&bull;</span>
             <button onClick={() => onGoToRegister('customer')} className="hover:text-emerald-400 transition-colors">
               Portal do Aluno
             </button>

@@ -524,14 +524,21 @@ export const HostedCheckoutModal: React.FC<HostedCheckoutModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setMethod('GPO')}
-                    className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    className={`p-3.5 rounded-2xl border text-left transition-all relative overflow-hidden ${
                       method === 'GPO'
                         ? 'bg-blue-50/90 border-blue-600 shadow-xs ring-2 ring-blue-600/30'
                         : 'bg-white border-slate-300 hover:border-slate-400'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <Smartphone className={`w-5 h-5 ${method === 'GPO' ? 'text-blue-600' : 'text-slate-500'}`} />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="w-10 h-6 rounded bg-white border border-slate-200 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                        <img
+                          src="https://visa.onlyvibes.online/wp-content/uploads/2026/09/images.png"
+                          alt="Multicaixa Express"
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                       <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
                         Instantâneo
                       </span>
@@ -543,14 +550,21 @@ export const HostedCheckoutModal: React.FC<HostedCheckoutModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setMethod('GPR')}
-                    className={`p-3.5 rounded-2xl border text-left transition-all ${
+                    className={`p-3.5 rounded-2xl border text-left transition-all relative overflow-hidden ${
                       method === 'GPR'
-                        ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                        ? 'bg-slate-900 border-slate-900 text-white shadow-xs ring-2 ring-emerald-500/30'
                         : 'bg-white border-slate-300 hover:border-slate-400'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <CreditCard className={`w-5 h-5 ${method === 'GPR' ? 'text-white' : 'text-slate-500'}`} />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="w-10 h-6 rounded bg-white border border-slate-200 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                        <img
+                          src="https://visa.onlyvibes.online/wp-content/uploads/2026/09/emis_logo_multicaixa-logoprancheta-1.webp"
+                          alt="Multicaixa Referência"
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${method === 'GPR' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>
                         ATM / IB
                       </span>
